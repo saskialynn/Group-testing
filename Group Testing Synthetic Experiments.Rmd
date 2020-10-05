@@ -1,0 +1,73 @@
+---
+title: "Group Testing Synthetic Experiments"
+output: pdf_document
+---
+
+# (1) Construct Mock Data Set
+Objective: create a mock data set with a list of individuals, assigned to groups, with true infected status
+Method:
+1. Fix number of people per group ($n$)
+2. Set probability per group ($p$ = probability of infection)
+3. Randomly select $x$ people to infect in the population: The number of infected people in a group is now binomial $bin(n-x, p)$
+
+```{r}
+# set parameters
+g <- 4 # number of groups
+n <- 5 # number of people per group
+p <- c(.1, .2, .3, .4) # infection probability per group (could put a probability distribution, for now just specifying values)
+x <- 5 # number of people to infect in population
+
+# construct dataframe
+id <- seq(1, g*n, by = 1) # individual ID
+group <- rep(1:g, each = n) # assign group numbers
+prob_infect <- rep(p, each = n) # assign infection probabilities
+infected <- rep(0, g*n) # infection status: 1 = infected; 0 = not infected
+data <- as.data.frame(cbind(id, group, prob_infect, infected))
+
+# randomly select individuals to infect
+i <- sample(data$id, size = x)
+data$infected[i] <- 1 # change infection status
+
+```
+
+# (2) Apply Bilder's Algorithm to Mock Data
+How many steps would it take for Bilder's algorithm to find the infected people in the mock data set?
+
+- optimal retesting configuration (ORC): the configuration which minimizes E(T) when ordered individuals are successively placed into subgroups.
+
+Code from Bilder paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4495770/#SD1
+(for computing pool sizes, per the algorithm described in the paper)
+```{r}
+# http://www.chrisbilder.com/grouptesting/ (see paper 11)
+#Program that contains R functions used to find ORC and CRC
+source("functions.R")
+
+################################################################################
+# Section 3 - Find ORC and CRC for p = 0.05, alpha = 0.1, I = 5
+#   See Table 2 in the on-line supplementary materials for the same numerical values
+
+  # Sensitivity and specificity
+  Se <- 0.95
+  Sp <- 0.95
+
+  #Order statistics for individual probabilities
+  p.a0.1 <- beta.dist(p = 0.05, a = 0.1, grp.sz = 5)
+  p.a0.1
+
+  #CRC
+  CRC.a0.1 <- get.CRC(p = p.a0.1, se = Se, sp = Sp, stages = 3)
+  CRC.a0.1$ET    # E(T)
+  CRC.a0.1$ET/5  # E(T)/I
+  CRC.a0.1$I2    # Subgroup sizes for second stage
+
+  #ORC
+  ORC.a0.1 <- get.CRC(p = p.a0.1, se = Se, sp = Sp, everycase = TRUE, stages = 3)
+  ORC.a0.1$ET    # E(T)
+  ORC.a0.1$ET/5  # E(T)/I
+  ORC.a0.1$I2    # Subgroup sizes for second stage
+```
+
+Next steps: compute optimal group sizes, apply them to the mock data set, see how many tests are needed to detect the infectious people in the population (accounting for sensitivity and specificity of test?)
+
+
+
