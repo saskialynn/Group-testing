@@ -3,6 +3,9 @@ title: "Group Testing Synthetic Experiments"
 output: pdf_document
 ---
 
+Packages used: 
+- `binGroup`: https://cran.r-project.org/web/packages/binGroup/binGroup.pdf ; https://journal.r-project.org/archive/2010/RJ-2010-016/RJ-2010-016.pdf
+
 # (1) Construct Mock Data Set
 Objective: create a mock data set with a list of individuals, assigned to groups, with true infected status
 Method:
@@ -28,15 +31,107 @@ data <- as.data.frame(cbind(id, group, prob_infect, infected))
 i <- sample(data$id, size = x)
 data$infected[i] <- 1 # change infection status
 
+# TODO: ADD COMMUNITY STRUCTURE
+# sample e.g. 2 individuals from 2 different groups - infected
+# infects neighbors: in their group, among the remaining n-1 people in the group, with probability tau = 0.1 the one infected person infects the remaining people in that group
+# assume no homogeneous mixing - remaining groups have no infected
 ```
 
-# (2) Apply Bilder's Algorithm to Mock Data
+
+# (2) Naive Approach: hierarchical model w/ no community structure
+
+- Objective: want to recover true infection status of individuals in our mock data set
+- Completely Naive Approach: Set maximum group size, split entire population into random groups of maximum group size - how fast can we find infected people? (baseline scenario)
+- Use `bingroup` package for above (`opt.pool.size()`, `OTC` functions)
+
+```{r}
+library(binGroup)
+# Compute optimal testing configuration (OTC) (group sizes)
+
+# two-stage hierarchical (D2)
+OTC(algorithm="D2", p=0.05, Se=0.99, Sp=0.99, group.sz=2:100, obj.fn=c("ET", "MAR"))
+# Optimal group size = 5 
+# (first stage test groups of size 5, second stage retest all individuals in positive pool)
+# p = overall prevalence of disease in starting population
+
+# three-stage hierarchical (D3)
+OTC(algorithm="D3", p=0.05, Se=0.99, Sp=0.99, group.sz=3:40, obj.fn=c("ET", "MAR"))
+# reduced maximum group size because of long run time
+# optimal group size (stage 1)= 9, (stage 2) = 3
+```
+
+
+
+```{r}
+# OTC() fxn does not compute pool assignments 
+# randomly assign people using the above computed group sizes
+# simulate using these results in our mock data set
+# repeat many times to see large sample results
+
+# two-stage hierarchical (D2)
+group_size <- 5
+k <- nrow(data)/group_size
+groups <- seq(1:k)
+s <- 100 # number of simulations
+total_tests <- numeric(s)
+data$assigned_pool <- rep(1:k, each = group_size)
+test_1 <- numeric(k)
+
+for (j in 1:s){
+  data$assigned_pool <- sample(data$assigned_pool) # randomly assign pool
+  
+  # First round of testing (pools of max size)
+  test_1 <- tapply(data$infected, data$assigned_pool, FUN = sum) # sum infected people in group
+  data$test_1 <- numeric(nrow(data))
+  
+  for (i in groups){
+    #data$assigned_pool %in% groups[i]
+    data$test_1[which(data$assigned_pool == i)] <- test_1[i]
+    # assign test_1 pooled results to individuals in data frame
+  }
+  
+  data$test_1_pos <- ifelse((data$test_1 > 0), 1, 0)
+  # if anyone in group is positive, assign 1 for test_1_pos
+  # if everyone in group is negative, assign 0 for test_1_pos
+  
+  # Second round testing (individuals)
+  # if group is positive, test individuals
+  data$test_2 <- ifelse( (data$test_1_pos == 1 & data$infected == 1), 1, 0)
+  
+  total_tests[j] <- sum(length(test_1), sum(data$test_1_pos))
+  # total number tests = number tests in round 1 + number individual tests
+}
+
+```
+
+```{r}
+# for (i in groups){
+#   i <- 1
+#   if(data$assigned_pool == groups[i]){
+#     data$test_1[data$assigned_pool == groups[i]] <- sum(data$infected[data$assigned_pool == groups[i]])
+#   }
+# }
+# 
+# lapply(data$infected, function(x) if (data$assigned_pool == groups) sum(data$infected[data$assigned_pool == groups[i]]))
+
+```
+
+Next steps: compute optimal group sizes, apply them to the mock data set, see how many tests are needed to detect the infectious people in the population (accounting for sensitivity and specificity of test?)
+
+# (3) TODO: Apply Bilder's Algorithm to Mock Data
 How many steps would it take for Bilder's algorithm to find the infected people in the mock data set?
 
 - optimal retesting configuration (ORC): the configuration which minimizes E(T) when ordered individuals are successively placed into subgroups.
 
 Code from Bilder paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4495770/#SD1
 (for computing pool sizes, per the algorithm described in the paper)
+
+- objective: want to recover true infection status of individuals in our mock data set
+- we know community structure, set maximum group size, split community into random groups (within the assigned groups (somewhat informed approach); within the entire population (completely uninformed approach)) of maximum group size - how fast can we find infected people? (baseline scenario) - then compare this to Bilder's algorithm results
+- see `bingroup` package for above (`opt.pool.size()`, `OTC` functions)
+- need to find objective function to maximize/minimize
+- then add questionnaire and community structure info
+- Bilder's algorithm does not incorporate community structure; could apply it separately to each community group to force some idea of community structure
 ```{r}
 # http://www.chrisbilder.com/grouptesting/ (see paper 11)
 #Program that contains R functions used to find ORC and CRC
@@ -66,8 +161,4 @@ source("functions.R")
   ORC.a0.1$ET/5  # E(T)/I
   ORC.a0.1$I2    # Subgroup sizes for second stage
 ```
-
-Next steps: compute optimal group sizes, apply them to the mock data set, see how many tests are needed to detect the infectious people in the population (accounting for sensitivity and specificity of test?)
-
-
 
