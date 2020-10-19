@@ -72,7 +72,7 @@ OTC(algorithm="D3", p=0.05, Se=0.99, Sp=0.99, group.sz=3:40, obj.fn=c("ET", "MAR
 group_size <- 5
 k <- nrow(data)/group_size
 groups <- seq(1:k)
-s <- 100 # number of simulations
+s <- 1000 # number of simulations
 total_tests <- numeric(s)
 data$assigned_pool <- rep(1:k, each = group_size)
 test_1 <- numeric(k)
@@ -102,19 +102,10 @@ for (j in 1:s){
   # total number tests = number tests in round 1 + number individual tests
 }
 
+
+table(total_tests)
 ```
 
-```{r}
-# for (i in groups){
-#   i <- 1
-#   if(data$assigned_pool == groups[i]){
-#     data$test_1[data$assigned_pool == groups[i]] <- sum(data$infected[data$assigned_pool == groups[i]])
-#   }
-# }
-# 
-# lapply(data$infected, function(x) if (data$assigned_pool == groups) sum(data$infected[data$assigned_pool == groups[i]]))
-
-```
 
 Next steps: compute optimal group sizes, apply them to the mock data set, see how many tests are needed to detect the infectious people in the population (accounting for sensitivity and specificity of test?)
 
