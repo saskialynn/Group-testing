@@ -46,7 +46,7 @@ quantile(cts,c(0.5,0.25,0.75,0.95,0.99))
 quantile(fw,c(0.5,0.25,0.75,0.95,0.99))
 
 # Create simulated vector of ct values with same shape as that from Weibull distribution fit to ct values from real first tests
-ct_fake_input <- rweibull(x,fw[[1]][1],fw[[1]][2])
+ct_fake_input <- rweibull(x,fw[[1]][1],fw[[1]][2]) # CHANGE THIS for correlated data
 
 # Create matrix of desired input parameters
 # Change above.lod to % samples with ct value >LoD to reflect actual population of interest. Changing "lod" itself has no effect on model output.
@@ -94,7 +94,7 @@ probit.z.indices<-c(488,1,length(z_scores)) # 488 is a z score of 0 (base case) 
 dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
 
 # Model loop, vary % above each LOD
-
+# ALSO WILL NEED TO CHANGE LOOP for correlated data 
 for (llod in 1:length(lod)){
 
 allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod),function(above) {

@@ -5,6 +5,25 @@
 # https://stats.stackexchange.com/questions/15011/generate-a-random-variable-with-a-defined-correlation-to-an-existing-variables
 
 ######### Generating Correlated Data for Pooled Sampling #########
+#' Notes
+#' dont want all individuals correlated
+#' create group assignments (column 'z')
+#' within group correlation
+#' procedure to generate groups: poisson distribution (centered around 1 or 2) determines group size
+#' loop over different groups, within group generate correlated Ct values
+#' Then imagine group assignment z hidden, shuffle data, repeat group testing model
+#' what is the specificity/sensitivity under uniform testing?
+#' now add extra information about group assignment; pool per group, repeat model 
+
+
+# this code works for correlating pairs of people
+#' to create correlation within groups of size >2:
+#' create vector of length = size(group) by sampling from multivariate normal dist (mvrnorm())
+#' map vector back to distribution of interest:
+#' to each entry of vector apply inverse normal: qnorm()
+#' 
+#' GOAL: 
+#' 
 # Import Ct value info
 probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
 
