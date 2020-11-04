@@ -2,27 +2,53 @@
 #' to create correlation within groups of size >2:
 #' 
 ## Step 1: 
-#' 1. create vector of length = size(group) by sampling from multivariate normal dist (mvrnorm())
+
 library(MASS) # contains mvrnorm fxn
-# sample from multivariate normal distribution
-group_size <- 4
-# made up correlation matrix for 4 var
-Sigma <- matrix(c(1, .1, .2, .3,
-                  .1, 1, .01 , .4, 
-                  .2, .01, 1, .5,
-                  .3, .4, .5, 1), 
-                nrow = 4, ncol = 4)
-# vector of means of the variables
-mu <- c(a = 0, b = 0, c = 0, d = 0) 
-mvnorm_dat <- mvrnorm(1, mu, Sigma)
 
-## Step 2: 
-#' 2. to each entry of vector apply inverse normal (pnorm) to get p-values
-p_val <- pnorm(mvnorm_dat)
+create_correlation_matrix <- function(type="block", N=4, rho=0.8){
+  #' 1. create vector of length = size(group) by sampling from multivariate normal dist (mvrnorm())
+  #' # sample from multivariate normal distribution
+  if (type == "random"){
+    d = -1
+    while(d<1e-3){
+      Sigma <- matrix(runif(N^2, 0.3,0.9), 
+                      nrow = N, ncol = N)
+      Sigma = 0.5 * (Sigma + t(Sigma))
+      diag(Sigma)= rep(1,N)
+      d = det(Sigma)
+    }
+    
+  }else{
+    if (type == "block"){ Sigma = (1-rho)  * diag(rep(1,N))  +rho * matrix(1, N, N)}
+    if (type == "custom"){
+      Sigma <- matrix(c(1, .1, .2, .3,
+                                             .1, 1, .01 , .4, 
+                                             .2, .01, 1, .5,
+                                             .3, .4, .5, 1), 
+                                           nrow = 4, ncol = 4)
+      N=4}
+  }
+  # vector of means of the variables
+  mu <- rep(0, N) 
+  mvnorm_dat <- mvrnorm(1, mu, Sigma)
+  
+  ## Step 2: 
+  #' 2. to each entry of vector apply inverse normal (pnorm) to get p-values
+  p_val <- pnorm(mvnorm_dat)
+  
+  ## Step 3: 
+  #' 3. Map back to distribution of interest (Weibull)
+  weibull_dat <- qweibull(p_val, shape = 1)
+  
+  
+  mvnorm_dat <- mvrnorm(1, mu, Sigma)
+  return(weibull_dat)
+}
 
-## Step 3: 
-#' 3. Map back to distribution of interest (Weibull)
-weibull_dat <- qweibull(p_val, shape = 1)
+
+
+
+
 
 
 
