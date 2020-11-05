@@ -72,34 +72,44 @@ quantile(fw,c(0.5,0.25,0.75,0.95,0.99))
 
 # Create simulated vector of ct values with same shape as that from Weibull distribution fit to ct values from real first tests
 ct_fake_input <- rweibull(x,fw[[1]][1],fw[[1]][2]) # CHANGE THIS for correlated data
-
+###  Create fake correlated Cts
+G = 4 ##3 size group
+N = x
+Sigma <- create_correlated_Cts(G)
+ct_fake_input <- data.frame("Ct" =create_correlated_Cts(G),
+                            "Z" = rep(1,G))
+for (i in 2:(N%/%G)){
+  ct_fake_input <- rbind(Ct_fake_input,
+                         data.frame("Ct" =create_correlated_Cts(G),
+                                     "Z" = rep(i,G))
+  )
+}
 # Create matrix of desired input parameters
 # Change above.lod to % samples with ct value >LoD to reflect actual population of interest. Changing "lod" itself has no effect on model output.
 lod <- 35
 above.lod <- seq(0.05,0.3,0.05)
-sequence <- seq(-10,15,0.01)
-mat<-matrix(ncol=3,nrow=length(sequence)*length(lod))
+translation_vector <- seq(-10,15,0.01)
+mat<-matrix(ncol=3,nrow=length(translation_vector))
 
-for(v in 1:length(sequence)){
-  fn<-ecdf(subset(pmax(5,ct_fake_input+sequence[v]),(pmax(5,ct_fake_input+sequence[v]))<45)) ### selects adequate values within the sample
-		for(i in 1:length(lod)){
-			a<-1-fn(lod[i]) ### quantile
-			mat[(v-1)*length(lod)+i,1]<-lod[i]
-			mat[(v-1)*length(lod)+i,2]<-a
-			mat[(v-1)*length(lod)+i,3]<-sequence[v]
-			}
+for(v in 1:length(translation_vector)){
+  i=1
+  fn<-ecdf(subset(pmax(5,ct_fake_input+translation_vector[v]),
+                  (pmax(5,ct_fake_input+translation_vector[v]))<45)) ### selects adequate values within the sample
+			a<-1-fn(lod) ###percentage of cvalues in the distribution above the LOD 
+			mat[(v-1)+i,1]<-lod
+			mat[(v-1)+i,2]<-a
+			mat[(v-1)+i,3]<-translation_vector[v]
 }
 
 # Shift ct values for each lod and %above lod
-mat2<-matrix(ncol=3,nrow=length(lod)*length(above.lod))
-for(i in 1:length(lod)){
+mat2<-matrix(ncol=3,nrow=length(above.lod))
+
 for(j in 1:length(above.lod)){
-	tmp<-subset(mat,mat[,1]==lod[i])
+	tmp<-subset(mat,mat[,1]==lod)
 	u<-tmp[which.min(abs(above.lod[j]-tmp[,2])),3]
-	mat2[(i-1)*length(above.lod)+j,1]<-lod[i]
-	mat2[(i-1)*length(above.lod)+j,2]<-above.lod[j]
-	mat2[(i-1)*length(above.lod)+j,3]<-u
-	}
+	mat2[j,1]<-lod[i]
+	mat2[j,2]<-above.lod[j]
+	mat2[j,3]<-u
 }
 ```
 
@@ -109,7 +119,7 @@ The probits scores are necessary to compute the viral load.
 
 ```{r probit_model}
 # probit data input
-probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
+probit_input <- read.csv("~/Dropbox/Group-testing/probit_zscores_cts_tissue_agnostic.csv")
 probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
 probit<-probit_t[,c(2,4,3)]
 probit<-probit[order(probit$z_value,probit$ct_value),]
@@ -128,9 +138,11 @@ dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
 # ALSO WILL NEED TO CHANGE LOOP for correlated data 
 for (llod in 1:length(lod)){
 
-allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod),function(above) {
+allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod),
+                                                function(above){
 
-		ct_set<-pmax(5,subset(ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3],ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3]<45))
+		ct_set<-pmax(5,subset(ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3],
+		                      ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3]<45))
 		threshold.ct <- c(sample(ct_set,n,replace=T))
 	
 		data.table::rbindlist(lapply(1:pool.max, function (p) { # pool size
@@ -153,8 +165,9 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod),function(abo
 					above.llod=above.lod[above],
 					concentration=each.conc,
 					probability = dbinom(positives, p, prevalence)/n,
-					random=sample(n,n)/n,
-					z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],sample(1:length(z_scores),n,replace=T))) %>%
+					random=sample(n,n,replace = TRUE)/n, #
+					z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
+					               sample(1:length(z_scores),n,replace=T))) %>%
 					mutate(
 						call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod[llod]-35.9)*10,2]>random,
 						tests=1 + p * (call.each.conc),
