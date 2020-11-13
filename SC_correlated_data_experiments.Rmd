@@ -166,7 +166,7 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
                                                 function(above){
 		ct_set<-pmax(5,subset(ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3],
 		                      ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3]<45))
-		threshold.ct <- c(sample(ct_set,n,replace=T))
+		threshold.ct <- c(sample(ct_set,n,replace=T)) # why replace = T? 
 	
 		data.table::rbindlist(lapply(1:pool.max, function (p) { # pool size
 		  data.table::rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
@@ -239,9 +239,9 @@ for (llod in 1:length(lod)){ # can we get rid of this outer loop?
 
 allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each row in mat2 (1:6)
                                                 function(above){
-		ct_set<-pmax(5,subset(ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3],
-		                      ct_fake_input+mat2[(llod-1)*length(above.lod)+above,3]<45))
-		threshold.ct <- c(sample(ct_set,n,replace=T))
+		ct_set<-pmax(5,subset(ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3],
+		                      ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3]<45))
+		threshold.ct <- c(ct_fake_input_corr %>% group_by(Z) %>% sample_n(2)) # sample by groups; WITH REPLACEMENT?
 	
 		data.table::rbindlist(lapply(1:pool.max, function (p) { # pool size
 		  data.table::rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
