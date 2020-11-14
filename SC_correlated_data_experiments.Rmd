@@ -166,7 +166,7 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
                                                 function(above){
 		ct_set<-pmax(5,subset(ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3],
 		                      ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3]<45))
-		threshold.ct <- c(sample(ct_set,n,replace=T)) # why replace = T? 
+		threshold.ct <- c(sample(ct_set,n,replace=T)) 
 	
 		data.table::rbindlist(lapply(1:pool.max, function (p) { # pool size
 		  data.table::rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
@@ -177,6 +177,7 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
 		      
 		      else {
 				dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) # sample data uniformly at random - introduce correlation structure here
+				# n samples of positives, rearrange into a matrix of positive rows, n columns
 		      
 				each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
 			
@@ -241,8 +242,10 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
                                                 function(above){
 		ct_set<-pmax(5,subset(ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3],
 		                      ct_fake_input_corr_t+mat2[(llod-1)*length(above.lod)+above,3]<45))
-		threshold.ct <- c(ct_fake_input_corr %>% group_by(Z) %>% sample_n(2)) # sample by groups; WITH REPLACEMENT?
-	
+		#threshold.ct <- c(ct_fake_input_corr %>% group_by(Z) %>% sample_n(2)) # sample by groups; WITH REPLACEMENT?
+	  threshold.ct_index <- sapply(sample(ct_fake_input_corr$Z, n/G, replace = TRUE), function(x) {which(ct_fake_input_corr$Z == x)}) # sample indexes
+	  threshold.ct <- data.frame(Ct = ct_fake_input_corr$Ct[threshold.ct_index, ], Z = rep(1:n/G, each = G))
+	   
 		data.table::rbindlist(lapply(1:pool.max, function (p) { # pool size
 		  data.table::rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
 		    data.table::rbindlist(lapply(0:p, function(positives) {
@@ -251,7 +254,10 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
 		              concentration=0, probability = dbinom(positives, p, prevalence), random=0, z.index=0, call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
 		      
 		      else {
-				dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) # sample data uniformly at random - introduce correlation structure here
+				dat_index <- sapply(sample(threshold.ct$Z, positives * (n/G), replace=T), function(x) {which(threshold.ct$Z == x)})
+				# might need to unlist after the sapply
+			  dat <- matrix(threshold.ct$Ct[dat_index], nrow = positive)
+				# sample data uniformly at random - introduce correlation structure here
 		      
 				each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
 			

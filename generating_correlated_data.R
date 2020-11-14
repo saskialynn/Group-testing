@@ -5,7 +5,7 @@
 
 library(MASS) # contains mvrnorm fxn
 
-create_correlated_Cts <- function(type="block", N=4, rho=0.8){
+create_correlated_Cts <- function(type="block", N=4, rho=0.8, shape = 4.55, scale = 29.96){
   # 1. create vector of length = size(group) by sampling from multivariate normal dist (mvrnorm())
   # # sample from multivariate normal distribution
   if (type == "random"){
@@ -40,10 +40,8 @@ create_correlated_Cts <- function(type="block", N=4, rho=0.8){
   
   ## Step 3: 
   #' 3. Map back to distribution of interest (Weibull)
-  weibull_dat <- qweibull(p_val, shape = 1)
+  weibull_dat <- qweibull(p_val, shape = shape, scale = scale)
   
-
-  mvnorm_dat <- mvrnorm(1, mu, Sigma)
   return(weibull_dat)
 }
 
