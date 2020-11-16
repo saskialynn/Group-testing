@@ -194,7 +194,7 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
 					               sample(1:length(z_scores),n,replace=T))) %>%
 					mutate(
 						call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod[llod]-35.9)*10,2]>random,
-						tests=1 + p * (call.each.conc),
+						tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
 						tn=0,
 						tp=1 * (call.each.conc),
 						fn=1 * (!call.each.conc),
@@ -208,7 +208,7 @@ allfirst.poolct <- data.table::rbindlist(lapply(1:length(above.lod), # for each 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
             total.tests=weighted.mean(tests, w=probability), 
-            tests.per.sample=weighted.mean(tests, w=probability)/mean(pool),
+            tests.per.sample=weighted.mean(tests, w=probability)/mean(pool), # calculate tests per sample
             tn=weighted.mean(tn, w=probability), 
             tp=weighted.mean(tp, w=probability), 
             fn=weighted.mean(fn, w=probability), 
