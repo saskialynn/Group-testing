@@ -411,8 +411,9 @@ rm(apw)
 ## Plots 
 
 
+
 ```{r generate_plots, eval=FALSE}
-# Generate plots
+# Generate individual plots
 
 # Print plot of pool size vs. PPA, panel grid of % samples with Ct > LoD, color by proportion test pos
 pdf("plot.ppa.above.colprev.pdf",width=8, height=5)
@@ -465,4 +466,60 @@ dev.off()
 # dev.off()
 
 ```
+
+```{r}
+allci_corr <- read.csv("model_output_corr.csv")
+allci_uncorr <- read.csv("model_output.csv")
+```
+
+```{r}
+# Generate Plots with multiple data sets (correlated vs. uncorrelated)
+# Print plot of pool size vs. PPA, panel grid of % samples with Ct > LoD, color by proportion test pos
+pdf("plot.ppa.above.colprev.both.pdf",width=8, height=5)
+ggplot() +
+  geom_line(allci_corr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.65,1),breaks=seq(0.65,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+dev.off()
+
+# Print plot of pool size vs. PPA, panel grid of proportion test pos, color by % samples with Ct > LoD
+pdf("plot.ppa.prev.colabove.both.pdf",width=8, height=5)
+ggplot() + 
+  geom_line(allci_corr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(above.llod))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(above.llod)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr$prevalence, labels=c("0.1% Tests positive", "1% Tests positive", "3% Tests positive", "5% Tests positive", "10% Tests positive","15% Tests positive")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.5,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion\nsamples\nCt > LoD"))
+dev.off()
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+pdf("plot.eff.above.colprev.both.pdf",width=8, height=5)
+ggplot() + 
+  geom_line(allci_corr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") + 
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+dev.off()
+```
+
+
+
+
+
+
+
+
+
 
