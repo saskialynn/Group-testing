@@ -142,6 +142,7 @@ The probits scores are necessary to compute the viral load.
 
 
 ```{r probit_model}
+## NAIVE Loop - sampling data uniformly at random
 # probit data input
 probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
 probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
@@ -158,10 +159,14 @@ probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
 probit.z.indices<-c(488,1,length(z_scores)) # 488 is a z score of 0 (base case) in the z index vector
 dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
 
-# Model loop, vary % above each LOD
+# Model loop, vary % above each LOD (simplified from original code)
 experiment_loop <- function(above, ct_dat){
-  ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45))
-  threshold.ct <- c(sample(ct_set, n, replace=T)) 
+  ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
+  # what is this line doing? (specifically, the <45 and pmax(5,))
+  # what I think it is doing: 
+  # (1) generate additional set of C_t values with 5-30% of values above each LoD; subset to only valid Ct values (<45)
+  # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
+  threshold.ct <- c(sample(ct_set, n, replace=T)) # why do we sample ct_set with replacement? doesn't this create correlation?
   
   rbindlist(lapply(1:pool.max, function (p) { # pool size
     rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
@@ -175,7 +180,7 @@ experiment_loop <- function(above, ct_dat){
         } 
         else {
           dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
-          # sample data uniformly at random - introduce correlation structure here
+          # sample data uniformly at random 
           # n samples of positives, rearrange into a matrix of positive rows, n columns
           
           each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) 
@@ -205,6 +210,7 @@ experiment_loop <- function(above, ct_dat){
   }))
 }
 
+# apply the model loop to the fake correlated data
 allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
@@ -231,12 +237,28 @@ write.csv(allci,"model_output_corr.csv")
 
 
 ```{r}
+# MODIFIED Loop for Correlated Data 
+
 # Model loop, vary % above each LOD
-experiment_loop_corr <- function(above, ct_dat){
-  ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45))
-  threshold.ct_index <- sapply(sample(ct_fake_input_corr$Z, n/G, replace = TRUE), function(x) {which(ct_fake_input_corr$Z == x)}) # sample indexes
-	  threshold.ct <- data.frame(Ct = ct_fake_input_corr$Ct[threshold.ct_index, ], Z = rep(1:n/G, each = G)) 
+# experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
+experiment_loop_corr <- function(above, ct_dat){ 
+  ct_dat$Ct <- ct_dat$Ct + mat2[above,3] # shift the Ct values by specified percent
+  ct_set <- subset(ct_dat, ct_dat$Ct<45) # subset to valid Ct values
+  # ct_set <- pmax(5,subset(ct_dat[,1] + mat2[above,3], ct_dat[,1] + mat2[above,3]<45))
   
+  threshold.ct_index <- sapply(sample(ct_set$Z, n/G, replace = TRUE), function(x) {which(ct_set$Z == x)}) 
+  # sample the indexes by group (i.e. always select all 4 members if a given group is sampled)
+  t <- as.data.frame(table(threshold.ct_index)) 
+  # frequency that each group is sampled in threshold.ct_index
+  threshold.ct <- data.frame(Ct = rep(ct_set$Ct[t[,1]], t[,2]), Z = rep(1:(n/G), each = G)) 
+  # replicate Ct values by number of times they appear in sampled indexes (number of times that group was sampled)
+  
+  # threshold.ct_index <- sapply(sample(ct_fake_input_corr$Z, n/G, replace = TRUE), function(x) {which(ct_fake_input_corr$Z == x)}) 
+  # why do we sample with replacement? we end up including every sample, some multiple times - why?
+  # sample indexes by group
+  # don't we need to be sampling from ct_set?
+	# threshold.ct <- data.frame(Ct = ct_fake_input_corr$Ct[threshold.ct_index, ], Z = rep(1:n/G, each = G)) 
+
   rbindlist(lapply(1:pool.max, function (p) { # pool size
     rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
       rbindlist(lapply(0:p, function(positives) { # number of positives
@@ -248,9 +270,13 @@ experiment_loop_corr <- function(above, ct_dat){
                      call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
         } 
         else {
-          dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
+          # positives <- 5
+          dat_index <- sapply(sample(threshold.ct$Z, positives * (n/G), replace=T), function(x) {which(threshold.ct$Z == x)})
+          # sample data by group
+          t <- as.data.frame(table(dat_index))
+          dat <- matrix(rep(threshold.ct$Ct[t[,1]], t[,2]), nrow = positives)
+          # dat <- matrix(threshold.ct$Ct[dat_index], nrow = positives)
           # sample data uniformly at random - introduce correlation structure here
-          # n samples of positives, rearrange into a matrix of positive rows, n columns
           
           each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) 
           # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
@@ -279,7 +305,10 @@ experiment_loop_corr <- function(above, ct_dat){
   }))
 }
 
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
+start_time <- Sys.time()
+allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop_corr, ct_dat = ct_fake_input_corr))
+end_time <- Sys.time()
+end_time-start_time
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
@@ -300,7 +329,7 @@ all2 <- all %>%
 cpi <- as_tibble(BinomCI(all2$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
 allci <- bind_cols(all2,cpi)
 
-write.csv(allci,"model_output_corr.csv")
+write.csv(allci,"model_output_corr_grouped.csv")
 ```
 
 
