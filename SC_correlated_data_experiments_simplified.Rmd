@@ -68,6 +68,7 @@ To achieve this, we simply jiggle the distribution:
 set.seed(42)
 # x<-50000
 x<-5000
+# x <- 500
 
 # Determine ct value quantiles for real first tests vs. fitted Weibull distribution
 quantile(cts,c(0.5,0.25,0.75,0.95,0.99))
@@ -152,8 +153,8 @@ z_scores<-as.numeric(unlist(distinct(probit,z_value)))
 
 # Number of replicates for model
 set.seed(42)
-n <- 10000
-# n <- 1000
+# n <- 10000
+n <- 1000
 pool.max<-20
 probit.mode<-c("base","dsa.lower","dsa.upper","psa") 
 probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
@@ -184,6 +185,7 @@ experiment_loop <- function(above, ct_dat){
           
           each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) 
           # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
+          # calculation diluation based on number of positives (colSum) in total pool size (p)
           
           data.frame(
             limit=lod,
@@ -238,10 +240,10 @@ write.csv(allci,"model_output_corr.csv")
 ```{r}
 # MODIFIED Loop for Correlated Data 
 
-ct_dat <- ct_fake_input_corr
-above <- 1
-positives <- 5
-p <- 6
+# ct_dat <- ct_fake_input_corr
+# above <- 1
+# positives <- 5
+# p <- 6
 
 # Model loop, vary % above each LOD
 # experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
@@ -265,17 +267,28 @@ experiment_loop_corr <- function(above, ct_dat){
                      call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
         } 
         else {
-          # two step sampling
+          # two step sampling for creating positives
           # 1. sample fraction of group
-          lapply(split(threshold.ct, threshold.ct$Z), 
-               function(x) x[sample(nrow(x), 3), ]))
+          group_frac <- .5
+          frac_pos <- round(positives*group_frac, digits = 0)
+          t <- lapply(split(threshold.ct, threshold.ct$Z), function(x) x[sample(nrow(x), n*frac_pos, replace = T), ])
+          # sample fraction of each group, repeat n times
+          t_dat <- as.data.frame(do.call(rbind, t)) # convert t from list to a dataframe
+          t_dat$Z <- rep(1:(n^2/G), each = frac_pos) # create new group numbers
+          
+          # 2. sample remaining individuals (to complete number of positives in pool) independently
+          l <- data.frame(Ct = sample(threshold.ct$Ct, (positives - frac_pos)*(n/G)*n, replace=T))
+          l$Z <- rep(1:(n^2/G), each = (positives - frac_pos))
+          
+          # combine correlated and uncorrelated into single data frame
+          tl_dat <- rbind(t_dat, l)
+          tl_dat <- tl_dat[order(tl_dat$Z), ]
+          
           # dat_index <- sapply(sample(threshold.ct$Z, positives * n, replace=T), function(x) {which(threshold.ct$Z == x)})
           # dat_index <- sapply(sample(threshold.ct$Z, positive_groups * n, replace=T), function(x) {which(threshold.ct$Z == x)})
-          
-          # two step sampling: (1) sample fraction (x) of group (x*G); (2) sample remaining individuals independently (as before) to complete pool size
           # sample data by group, n experiments
 
-          dat <- matrix(threshold.ct$Ct[dat_index], nrow = positives)
+          dat <- matrix(tl_dat$Ct, nrow = positives)
           # each column is an experiment, each entry in a row is a sample
           
           each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) 
@@ -491,10 +504,13 @@ dev.off()
 ```{r}
 allci_corr <- read.csv("model_output_corr.csv")
 allci_uncorr <- read.csv("model_output.csv")
+allci_corr_group <- read.csv("model_output_corr_grouped.csv")
 ```
 
 ```{r}
-# Generate Plots with multiple data sets (correlated vs. uncorrelated)
+# Generate Plots with multiple data sets 
+
+# correlated (sampled w.out corr structure vs. uncorrelated
 # Print plot of pool size vs. PPA, panel grid of % samples with Ct > LoD, color by proportion test pos
 pdf("plot.ppa.above.colprev.both.pdf",width=8, height=5)
 ggplot() +
@@ -527,6 +543,48 @@ ggplot() +
   geom_line(allci_corr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence))) +
   geom_line(allci_uncorr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence)), linetype = "dashed") +
   facet_wrap(vars(factor(allci_corr$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") + 
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+dev.off()
+```
+
+```{r}
+# correlated (sampled w. grouping) vs. uncorrelated
+# Print plot of pool size vs. PPA, panel grid of % samples with Ct > LoD, color by proportion test pos
+pdf("plot.ppa.above.colprev.corrstruc.pdf",width=8, height=5)
+ggplot() +
+  geom_line(allci_corr_group, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr_group$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.65,1),breaks=seq(0.65,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+dev.off()
+
+# Print plot of pool size vs. PPA, panel grid of proportion test pos, color by % samples with Ct > LoD
+pdf("plot.ppa.prev.colabove.corrstruc.pdf",width=8, height=5)
+ggplot() + 
+  geom_line(allci_corr_group, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(above.llod))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(above.llod)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr_group$prevalence, labels=c("0.1% Tests positive", "1% Tests positive", "3% Tests positive", "5% Tests positive", "10% Tests positive","15% Tests positive")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.5,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion\nsamples\nCt > LoD"))
+dev.off()
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+pdf("plot.eff.above.colprev.corrstruc.pdf",width=8, height=5)
+ggplot() + 
+  geom_line(allci_corr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence))) +
+  geom_line(allci_uncorr, mapping = aes(x=pool, y=tests.per.sample,color=as.factor(prevalence)), linetype = "dashed") +
+  facet_wrap(vars(factor(allci_corr_group$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
   theme_bw() + 
   scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
   xlab("Pool size") + ylab("Average tests per sample") + 
