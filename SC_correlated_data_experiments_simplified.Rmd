@@ -153,8 +153,8 @@ z_scores<-as.numeric(unlist(distinct(probit,z_value)))
 
 # Number of replicates for model
 set.seed(42)
-# n <- 10000
-n <- 1000
+n <- 10000
+
 pool.max<-20
 probit.mode<-c("base","dsa.lower","dsa.upper","psa") 
 probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
@@ -242,8 +242,6 @@ write.csv(allci,"model_output_corr.csv")
 
 # ct_dat <- ct_fake_input_corr
 # above <- 1
-# positives <- 5
-# p <- 6
 
 # Model loop, vary % above each LOD
 # experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
@@ -256,10 +254,10 @@ experiment_loop_corr <- function(above, ct_dat){
   threshold.ct <- data.frame(Ct = ct_set$Ct[threshold.ct_index], Z = rep(1:(n/G), each = G)) 
   # replicate Ct values by number of times they appear in sampled indexes (number of times that group was sampled)
 
-  rbindlist(lapply(1:pool.max, function (p) { # pool size
+  rbindlist(lapply(2:pool.max, function (p) { # pool size
     rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
-      rbindlist(lapply(0:p, function(positives) { # number of positives
-        
+      rbindlist(lapply(2:p, function(positives) { # number of positives
+        # rbindlist(lapply(c(0.5, 0.75, 1), function(group_frac))){}
         if (positives == 0) {
           data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
                      above.llod = above.lod[above], 
@@ -270,28 +268,39 @@ experiment_loop_corr <- function(above, ct_dat){
           # two step sampling for creating positives
           # 1. sample fraction of group
           group_frac <- .5
-          frac_pos <- round(positives*group_frac, digits = 0)
-          t <- lapply(split(threshold.ct, threshold.ct$Z), function(x) x[sample(nrow(x), n*frac_pos, replace = T), ])
+          frac_pos <- round(G*group_frac, digits = 0)
+          #t <- lapply(split(threshold.ct, threshold.ct$Z), function(x) x[sample(nrow(x), n*frac_pos, replace = T), ])
+          
+          t <- sapply(sample(threshold.ct$Z, n, replace = T), function(x) return(threshold.ct$Ct[which(threshold.ct$Z == x)[1:min(frac_pos, positives)]])) # for each experiment, sample one group
           # sample fraction of each group, repeat n times
-          t_dat <- as.data.frame(do.call(rbind, t)) # convert t from list to a dataframe
-          t_dat$Z <- rep(1:(n^2/G), each = frac_pos) # create new group numbers
+          # t_dat <- as.data.frame(do.call(rbind, t)) # convert t from list to a dataframe
           
+          t_dat <- as.matrix(t, ncol = n, nrow = min(frac_pos, positives))
+          # t_dat <- ifelse(positives == 1, t(as.matrix(t)), as.matrix(t))
+         
+          print(c(dim(t_dat), positives, p))
           # 2. sample remaining individuals (to complete number of positives in pool) independently
-          l <- data.frame(Ct = sample(threshold.ct$Ct, (positives - frac_pos)*(n/G)*n, replace=T))
-          l$Z <- rep(1:(n^2/G), each = (positives - frac_pos))
-          
-          # combine correlated and uncorrelated into single data frame
-          tl_dat <- rbind(t_dat, l)
-          tl_dat <- tl_dat[order(tl_dat$Z), ]
+          if (positives - min(frac_pos, positives) > 0){
+            l <- matrix(sample(threshold.ct$Ct, (positives - min(frac_pos, positives))*n, replace=T), ncol = n)
+            print(paste("dim l", dim(l)))
+            # combine correlated and uncorrelated into single data frame
+            tl_dat <- rbind(t_dat, l)
+          }
+          else {
+            tl_dat <- t_dat
+          }
           
           # dat_index <- sapply(sample(threshold.ct$Z, positives * n, replace=T), function(x) {which(threshold.ct$Z == x)})
           # dat_index <- sapply(sample(threshold.ct$Z, positive_groups * n, replace=T), function(x) {which(threshold.ct$Z == x)})
           # sample data by group, n experiments
 
-          dat <- matrix(tl_dat$Ct, nrow = positives)
+          dat <- tl_dat
+          print(paste("dim dat", dim(dat)))
           # each column is an experiment, each entry in a row is a sample
           
-          each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat))) 
+          each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat)))
+          head(each.conc)
+          print(length(each.conc)) 
           # sum over each column; negatives dilute the sample, calculate the dilution
           # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
           
