@@ -52,7 +52,7 @@ shape_w = summary(fw)[[1]][1]
 scale_w = summary(fw)[[1]][2]
 ```
 
-
+# Generate un-correlated data
 The viral load distribution changes from population to population. As such, we need to take this variability into account: we consider as a surrogate for this variability the proportion of variables that are above the Limit of Detection.
 
 To achieve this, we simply jiggle the distribution:
@@ -109,18 +109,15 @@ for(j in 1:length(above.lod)){
 }
 ```
 
-
+# Generate correlated Ct data
 ```{r}
 ## GENERATE CORRELATED DATA
 source("generating_correlated_data.R") # contains fxn create_correlated_Cts
 
 # Create simulated vector of ct values with same shape as that from Weibull distribution fit to ct values from real first tests
-# ct_fake_input_corr <- rweibull(x,fw[[1]][1],fw[[1]][2]) # CHANGE THIS for correlated data (see below)
-
 ###  Create fake correlated Cts
 G <-  4 # group size
 N <-  x
-# Sigma <- create_correlated_Cts(G)
 
 # creating a single group of correlated data from Weibull dist
 ct_fake_input_corr <- data.frame("Ct" = create_correlated_Cts(type="block", N=G, rho=0.8),
@@ -141,9 +138,7 @@ for (i in 2:(N/G)){ # N%/%G?
 
 The probits scores are necessary to compute the viral load.
 
-
-```{r probit_model}
-## NAIVE Loop - sampling data uniformly at random
+```{r}
 # probit data input
 probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
 probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
@@ -160,7 +155,13 @@ probit.mode<-c("base","dsa.lower","dsa.upper","psa")
 probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
 probit.z.indices<-c(488,1,length(z_scores)) # 488 is a z score of 0 (base case) in the z index vector
 dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
+```
 
+# Loops to vary % above each LOD for different combinations of pool size, prevalence, and positives
+
+## Naive loop - sampling data without accounting for correlation structure
+```{r probit_model}
+## NAIVE Loop - sampling data uniformly at random
 # Model loop, vary % above each LOD (simplified from original code)
 experiment_loop <- function(above, ct_dat){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
@@ -236,15 +237,14 @@ allci <- bind_cols(all2,cpi)
 write.csv(allci,"model_output_corr.csv")
 ```
 
-
+## Correlated loop - sampling data accounting for correlation structure of data
 ```{r}
 # MODIFIED Loop for Correlated Data 
+# Model loop, vary % above each LOD
+# experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
 
 # ct_dat <- ct_fake_input_corr
 # above <- 1
-
-# Model loop, vary % above each LOD
-# experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
 experiment_loop_corr <- function(above, ct_dat){ 
   ct_dat$Ct <- ct_dat$Ct + mat2[above,3] # shift the Ct values by specified percent
   ct_set <- subset(ct_dat, ct_dat$Ct<45) # subset to valid Ct values
@@ -253,76 +253,69 @@ experiment_loop_corr <- function(above, ct_dat){
   # sample the indexes by group (i.e. always select all 4 members if a given group is sampled)
   threshold.ct <- data.frame(Ct = ct_set$Ct[threshold.ct_index], Z = rep(1:(n/G), each = G)) 
   # replicate Ct values by number of times they appear in sampled indexes (number of times that group was sampled)
-
+  
   rbindlist(lapply(2:pool.max, function (p) { # pool size
     rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
       rbindlist(lapply(2:p, function(positives) { # number of positives
-        # rbindlist(lapply(c(0.5, 0.75, 1), function(group_frac))){}
-        if (positives == 0) {
-          data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
-                     above.llod = above.lod[above], 
-                     concentration=0, probability = dbinom(positives, p, prevalence), random=0, z.index=0,
-                     call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
-        } 
-        else {
-          # two step sampling for creating positives
-          # 1. sample fraction of group
-          group_frac <- .5
-          frac_pos <- round(G*group_frac, digits = 0)
-          #t <- lapply(split(threshold.ct, threshold.ct$Z), function(x) x[sample(nrow(x), n*frac_pos, replace = T), ])
+        rbindlist(lapply(c(0.5, 0.75, 1), function(group_frac) {
           
-          t <- sapply(sample(threshold.ct$Z, n, replace = T), function(x) return(threshold.ct$Ct[which(threshold.ct$Z == x)[1:min(frac_pos, positives)]])) # for each experiment, sample one group
-          # sample fraction of each group, repeat n times
-          # t_dat <- as.data.frame(do.call(rbind, t)) # convert t from list to a dataframe
-          
-          t_dat <- as.matrix(t, ncol = n, nrow = min(frac_pos, positives))
-          # t_dat <- ifelse(positives == 1, t(as.matrix(t)), as.matrix(t))
-         
-          print(c(dim(t_dat), positives, p))
-          # 2. sample remaining individuals (to complete number of positives in pool) independently
-          if (positives - min(frac_pos, positives) > 0){
-            l <- matrix(sample(threshold.ct$Ct, (positives - min(frac_pos, positives))*n, replace=T), ncol = n)
-            print(paste("dim l", dim(l)))
-            # combine correlated and uncorrelated into single data frame
-            tl_dat <- rbind(t_dat, l)
-          }
+          if (positives == 0) {
+            data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+                       above.llod = above.lod[above], 
+                       concentration=0, probability = dbinom(positives, p, prevalence), random=0, z.index=0,
+                       call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
+          } 
           else {
-            tl_dat <- t_dat
+            # two step sampling for creating positives
+            ## 1. Sample fraction of group that is correlated
+            group_frac <- .5 # fraction of each group to sample
+            frac_pos <- round(G*group_frac, digits = 0) 
+            
+            t <- sapply(sample(threshold.ct$Z, n, replace = T), function(x) return(threshold.ct$Ct[which(threshold.ct$Z == x)[1:min(frac_pos, positives)]])) # for each experiment (1:n), sample frac_pos number of individuals from each group
+            
+            t_dat <- as.matrix(t, ncol = n, nrow = min(frac_pos, positives))
+            print(c(dim(t_dat), positives, p))
+            
+            ## 2. sample remaining individuals independently (to complete number of positives in pool)
+            if (positives - min(frac_pos, positives) > 0){
+              l <- matrix(sample(threshold.ct$Ct, (positives - min(frac_pos, positives))*n, replace=T), ncol = n)
+              print(paste("dim l", dim(l)))
+              tl_dat <- rbind(t_dat, l) # combine correlated and uncorrelated into single data frame
+            }
+            else {
+              tl_dat <- t_dat
+            }
+            
+            dat <- tl_dat # each column is an experiment, each entry in a row is a sample
+            print(paste("dim dat", dim(dat)))
+            
+            each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat)))
+            head(each.conc)
+            print(length(each.conc)) 
+            # sum over each column; negatives dilute the sample, calculate the dilution
+            # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
+            
+            data.frame(
+              limit=lod,
+              pool=p,
+              pos=positives,
+              prevalence=prevalence,
+              group_frac = group_frac,
+              above.llod=above.lod[above],
+              concentration=each.conc,
+              probability = dbinom(positives, p, prevalence)/n,
+              random=sample(n,n,replace = TRUE)/n, #
+              z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
+                             sample(1:length(z_scores),n,replace=T))) %>%
+              mutate(
+                call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
+                tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
+                tn=0,
+                tp=1 * (call.each.conc),
+                fn=1 * (!call.each.conc),
+                fp=0)
           }
-          
-          # dat_index <- sapply(sample(threshold.ct$Z, positives * n, replace=T), function(x) {which(threshold.ct$Z == x)})
-          # dat_index <- sapply(sample(threshold.ct$Z, positive_groups * n, replace=T), function(x) {which(threshold.ct$Z == x)})
-          # sample data by group, n experiments
-
-          dat <- tl_dat
-          print(paste("dim dat", dim(dat)))
-          # each column is an experiment, each entry in a row is a sample
-          
-          each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,rnorm(mean=0,sd=1.1,n=ncol(dat)))
-          head(each.conc)
-          print(length(each.conc)) 
-          # sum over each column; negatives dilute the sample, calculate the dilution
-          # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
-          
-          data.frame(
-            limit=lod,
-            pool=p,
-            pos=positives,
-            prevalence=prevalence,
-            above.llod=above.lod[above],
-            concentration=each.conc,
-            probability = dbinom(positives, p, prevalence)/n,
-            random=sample(n,n,replace = TRUE)/n, #
-            z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
-                           sample(1:length(z_scores),n,replace=T))) %>%
-            mutate(
-              call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
-              tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
-              tn=0,
-              tp=1 * (call.each.conc),
-              fn=1 * (!call.each.conc),
-              fp=0)
-        }
+        }))
       }))
     }))
   }))
@@ -333,6 +326,7 @@ allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop_corr, c
 end_time <- Sys.time()
 end_time-start_time
 
+# TODO: modify this to include group_frac
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
             total.tests=weighted.mean(tests, w=probability), 
