@@ -242,14 +242,14 @@ write.csv(allci,"model_output_corr.csv")
 # MODIFIED Loop for Correlated Data 
 # Model loop, vary % above each LOD
 # experiment_loop_corr takes entire ct_dat data frame as argument- should have columns Ct and Z
-
 # ct_dat <- ct_fake_input_corr
 # above <- 1
 experiment_loop_corr <- function(above, ct_dat){ 
   ct_dat$Ct <- ct_dat$Ct + mat2[above,3] # shift the Ct values by specified percent
   ct_set <- subset(ct_dat, ct_dat$Ct<45) # subset to valid Ct values
-  
-  threshold.ct_index <- as.vector(sapply(sample(ct_set$Z, (n/G), replace = TRUE), function(x) {which(ct_set$Z == x)})) 
+  relevant_groups = unlist(unique(ct_set %>% group_by(Z) %>% tally() %>% filter(n==G) %>% dplyr::select(Z)))
+  ct_set = ct_set[which(ct_set$Z %in% relevant_groups),]
+  threshold.ct_index <- unlist(sapply(sample(ct_set$Z, (n/G), replace = TRUE), function(x) {which(ct_set$Z == x)})) 
   # sample the indexes by group (i.e. always select all 4 members if a given group is sampled)
   threshold.ct <- data.frame(Ct = ct_set$Ct[threshold.ct_index], Z = rep(1:(n/G), each = G)) 
   # replicate Ct values by number of times they appear in sampled indexes (number of times that group was sampled)
