@@ -1,0 +1,188 @@
+---
+title: "R Notebook"
+output: pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(network)
+library(ggplot2)
+library(dplyr)
+library(data.table)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+edge_list <- tibble(from = c(1, 1, 1, 
+                             2, 2, 2, 
+                             3, 3, 3, 
+                             4, 4, 4), 
+                    to = c(2, 3, 4, 
+                           1, 3, 4, 
+                           1, 2, 4, 
+                           1, 2, 3), 
+                    contact = c(.9, .8, .2, # transmission probability
+                                .9, .7, .1, 
+                                .8, .7, .6, 
+                                .2, .1, .6))
+node_list <- tibble(id = 1:4)
+```
+
+Group size: 1 : 20
+Prevalence: 0.001,0.01,0.03,0.05,0.1,0.15
+
+# Create network: nodes, edges, transmission probabilities
+```{r}
+N <- 6 # group size
+# create nodes
+nodes <- tibble(id = 1:N)
+
+# Create edges 
+from <- rep(1:N, each = (N-1))
+to <- unlist(lapply(1:N, function(x) setdiff(1:N, x)))
+
+# generate matrix of random transmission probabilities 
+d = -1
+while(d<1e-3){
+  Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
+  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
+  diag(Sigma)= rep(1,N) # 1's on diagonal 
+  d = det(Sigma)
+}
+
+transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
+
+edges <- as.data.frame(cbind(from, to, transmission_prob)) 
+```
+
+
+```{r}
+n <- 100 # number of repetitions of simulation
+infector <- numeric(n)
+infected <- matrix(nrow = n, ncol = N)
+dimnames(infected) <- list(1:n, c(1:N))
+v_long <- rep(1:10, each = 2)
+v <- v_long[1:N]
+prev <- 0.01
+risk_probs <- prev*v
+# risk_probs <- c(.8, .1, .02, .03, .05)
+# category zero is probability that noone gets infected
+# Prevalence: 0.001,0.01,0.03,0.05,0.1,0.15
+
+#infect_start <- rmultinom(n, size = 1, prob=c(0.6, 0.05, 0.2, .15))
+# choose who is infected:
+# each individual has different risk (prob); repeatedly (n=100) choose size = 1 individual to be infected
+
+for (i in 1:n){
+  # choose starting infected individual
+  # infector[i] <- which(rmultinom(1, size = 1, prob=risk_probs) > 0) - 1
+  # record who was infected; 0 if nobody infected
+  flip <- rbinom(1, 1, prob = (1-exp(sum(log(1-risk_probs)))))
+
+  if (flip == 0) { # nobody infected
+    infected[i,] <- 0
+  } 
+  else{ # transmit infection
+    infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) 
+    infected[i,infector[i]] <- 1 # infector 
+    infect_contact <- edges[edges$from == infector[i],] 
+    infected[i,-infector[i]] <- unlist(lapply(infect_contact$transmission_prob, function(x) x > runif(1, min = 0, max = 1)))
+    # infected if contact rate > uniform(0,1)
+  }
+}
+
+group_size <- rep(N, n)
+dat <- cbind(infector, infected, group_size)
+
+# store probability of sum(x)=k positives for given group size
+probs <- matrix(nrow = (N+1), ncol = N) # columns = group size, rows = number positives (0: group size)
+dimnames(probs) <- list(0:N, 1:N)
+probs[,N] <- unlist(lapply(0:N, function(x) sum(rowSums(infected) == x)/n))
+
+```
+
+distribution of the sum of number of infected people
+expected sensitivity of test 
+
+p(sum(x) = 1) = 
+p (sum(x) = 2) = 
+p(sum(x) = 3) = 
+
+p(sum(x) = k | prevalence)
+
+# adapt to loop over different group sizes
+```{r}
+group_max <- 20
+n <- 100 # number of repetitions of simulation
+
+calc_probs <- function(N, prev){
+  # create nodes
+  nodes <- tibble(id = 1:N)
+  
+  # Create edges 
+  from <- rep(1:N, each = (N-1))
+  to <- unlist(lapply(1:N, function(x) setdiff(1:N, x)))
+  
+  # generate matrix of random transmission probabilities 
+  d = -1
+  while(d<1e-3){
+    Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
+    Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
+    diag(Sigma)= rep(1,N) # 1's on diagonal 
+    d = det(Sigma)
+  }
+  
+  transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
+  
+  edges <- as.data.frame(cbind(from, to, transmission_prob)) 
+  
+  
+  infector <- numeric(n)
+  infected <- matrix(nrow = n, ncol = N)
+  dimnames(infected) <- list(1:n, c(1:N))
+  v_long <- rep(1:10, each = 2)
+  v <- v_long[1:N]
+  # prev <- 0.01
+  risk_probs <- prev*v
+  
+  for (i in 1:n){
+    
+    # flip coin to decide if anyone is infected
+    flip <- rbinom(1, 1, prob = (1-exp(sum(log(1-risk_probs)))))
+    
+    if (flip == 0) { # nobody infected
+      infected[i,] <- 0
+    } 
+    else{ # flip = 1 -> transmit infection
+      infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) 
+      infected[i,infector[i]] <- 1 # infector 
+      infect_contact <- edges[edges$from == infector[i],] 
+      infected[i,-infector[i]] <- unlist(lapply(infect_contact$transmission_prob, function(x) x > runif(1, min = 0, max = 1)))
+      # infected if contact rate > uniform(0,1)
+    }
+  }
+  
+  # store probability of sum(x)=k positives for given group size
+  #probs <- matrix(nrow = N, ncol = N) # columns = group size, rows = number positives (0: group size)
+  #dimnames(probs) <- list(0:(N-1), 1:N)
+  #probs[,N] <- unlist(lapply(0:(N-1), function(x) sum(rowSums(infected) == x)/n))
+  probs <- lapply(0:N, function(x) sum(rowSums(infected) == x)/n)
+  names(probs) <- 0:N
+  return(probs)
+}
+
+results_prev_01 <- lapply(1:20, calc_probs, prev = 0.01)
+
+
+```
+
+
+
+
+
+```{r}
+# routes_network <- network(edge_list, vertex.attr = node_list, matrix.type = "edgelist", ignore.eval = FALSE)
+# plot(routes_network, vertex.cex = 3)
+```
+
+
