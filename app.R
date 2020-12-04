@@ -8,7 +8,7 @@ source("MCMC.R")
 above.lod = 0.05  #### Need to update this depending on the LOD of the test
 prev_tot=0.01  ### Need to compute this based on the date and geographical location
 
-v0 = c(1,2,3,4,1,1,1,2,3,1,2,3,1,1,1,2,3,1,3,1,2,3,1)
+v0 = rep(1:20)
 countries = read.csv("countries_names.csv")
 countries_list = list()
 for (c in unique(countries$country_name)){
@@ -19,9 +19,9 @@ for (c in unique(countries$country_name)){
   }
 }
 
-equivalences <- list("H" = 0.3,
+equivalences <- list("H" = 0.18, #https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm#:~:text=The%20rates%20of%20symptomatic%20and,%25%E2%80%9324%25)%2C%20respectively.
                      "W" = 0.1,
-                     "S" =	0.4,
+                     "S" =	0.43,
                      "C" = 0.12)
 data = read_csv( "lookup_sensitivity.csv")
 ui <- fluidPage(
@@ -90,9 +90,9 @@ ui <- fluidPage(
                   selected="Main territory"),
       dateInput(inputId = "date_event",
                 label ="When will you be pooling samples?", 
-                value ="2020-11-15",
+                value ="2020-10-31",
                 min = NULL,
-                max = "2020-11-29",
+                max = "2020-10-31",
                 format = "yyyy-mm-dd",
                 startview = "month",
                 weekstart = 0,
@@ -214,7 +214,9 @@ server <- function(input, output, session) {
     }
     
     #### return the appropriate entry in the data table
-    prev= rep(prev_tot,input$p)
+    print(c(input$country, input$region, input$date_event))
+    prevalences= fetch_all_prevalence(input$country, input$region,  input$date_event)
+    prev_tot = prevalences$prev
     data_temp = data %>% dplyr::filter((above.llod == 0.05) & (pool >= G))
     data_temp$probability = 0
     data_temp$probability_null = 0
@@ -272,8 +274,8 @@ server <- function(input, output, session) {
     x =  dataInput()$x
     
     ggplot(x) +
-      geom_line(aes(x=pool, y=tp1/(tp1 + fn1), colour="red"),size=2) + 
-      geom_line(aes(x=pool, y=tp0/(tp0 + fn0), colour="black"),linetype = "dashed", size=1) + 
+      geom_line(aes(x=pool, y=tp1/(tp1 + fn1), colour="With correlation"),size=2) + 
+      geom_line(aes(x=pool, y=tp0/(tp0 + fn0), colour="Null hypothesis\n (Random Sample)"),linetype = "dashed", size=1) + 
       theme_bw()
     #hist(100, breaks = seq(from=0, to=100, by=2.5), col = "#75AADB", border = "white",
     #     xlab = "Probability (in %)",
