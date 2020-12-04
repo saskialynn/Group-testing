@@ -1,10 +1,14 @@
 # Define UI for app that draws a histogram ----
 library("shiny")
 library("tidyverse")
-source("preprocessing.R")
 library("shinyMatrix")
 
+source("preprocessing.R")
+source("MCMC.R")
+above.lod = 0.05  #### Need to update this depending on the LOD of the test
+prev_tot=0.01  ### Need to compute this based on the date and geographical location
 
+v0 = c(1,2,3,4,1,1,1,2,3,1,2,3,1,1,1,2,3,1,3,1,2,3,1)
 countries = read.csv("countries_names.csv")
 countries_list = list()
 for (c in unique(countries$country_name)){
@@ -15,11 +19,11 @@ for (c in unique(countries$country_name)){
   }
 }
 
-equivalences <- list("H" = 3,
-                   "W" = 1.5,
-                   "S" =	4,
-                    "C" = 1.3)
-
+equivalences <- list("H" = 0.3,
+                     "W" = 0.1,
+                     "S" =	0.4,
+                     "C" = 0.12)
+data = read_csv( "lookup_sensitivity.csv")
 ui <- fluidPage(
   
   # App title ----
@@ -32,9 +36,13 @@ ui <- fluidPage(
     # Sidebar panel for inputs ----
     sidebarPanel(
       numericInput(inputId = "p",
-                   label = "How many people per pool?",
-                   value = 90,
+                   label = "What is the maximum number of people per pool?",
+                   value = 20,
                    min=0),
+      radioButtons(inputId = "above.llod",
+                   label = "What is the limit of detection threshold for your PCR machine?",
+                   choices = c(35, 40, 50),
+                   selected= 35),
       radioButtons(inputId = "existence_Correlations",
                    label = "Do the people in the pool know each other?",
                    choices =  c(  "Not that I know of"= 0,
@@ -47,7 +55,7 @@ ui <- fluidPage(
       selectInput(
         "where",
         "Select the participants that know someone else in the pool",
-        choices = 1:100,
+        choices = 1:20,
         selected = NULL,
         multiple = TRUE,
         selectize = TRUE,
@@ -115,8 +123,9 @@ ui <- fluidPage(
     tabsetPanel(
       tabPanel("Introduction", htmlOutput("disclaimer")),
       tabPanel("Correlation Struture in the pool", plotOutput("matPlot")),
+      tabPanel("Sensitivity", plotOutput("distPlot")),
       #tabPanel("Table", tableOutput("probs")),
-      tabPanel("Report", h3(htmlOutput("Report"))))
+      tabPanel("Summary of the results", h3(htmlOutput("Report"))))
     )
   )
 )
@@ -186,33 +195,86 @@ server <- function(input, output, session) {
   
   dataInput <- reactive({
     #### Convert matrix into values
-    m = matrix(0, nrow(input$Correlation),nrow(input$Correlation))
-    diag(m) <- 1
-    for (i in names(equivalences) ){
-      if (sum(input$Correlation == i)>0){
-        ind = which(input$Correlation == i, arr.ind = TRUE)
-        for(u in 1:nrow(ind)){
-          m[ind[u,1], ind[u,2]] = equivalences[[i]]
-          m[ind[u,2], ind[u,1]] = equivalences[[i]]
+    if (is.null(input$where) == FALSE){
+      m = matrix(0, nrow(input$Correlation),nrow(input$Correlation))
+      diag(m) <- 1
+      for (i in names(equivalences) ){
+        if (sum(input$Correlation == i)>0){
+          ind = which(input$Correlation == i, arr.ind = TRUE)
+          for(u in 1:nrow(ind)){
+            m[ind[u,1], ind[u,2]] = equivalences[[i]]
+            m[ind[u,2], ind[u,1]] = equivalences[[i]]
+          }
         }
       }
+      v = v0[1:length(input$where)]
+    }else{
+      m= NULL
+      v = c()
     }
-    print(m)
-    return(m)
     
+    #### return the appropriate entry in the data table
+    prev= rep(prev_tot,input$p)
+    data_temp = data %>% dplyr::filter((above.llod == 0.05) & (pool >= G))
+    data_temp$probability = 0
+    data_temp$probability_null = 0
+    #### Do the simulations to compute the probabilities
+    for (g in max(2, length(v)):input$p){
+      if((g-length(v))>0){
+        proba = 1-exp(sum(log(1-v*prev_tot)) + sum(log(1-prev[1:(g-length(v))])))
+        dist<-simulate_infections(v, m, prev[1:(g-length(v))], B=1000)
+      }else{
+        print("Esta quai")
+        proba = 1-exp(sum(log(1-v*prev_tot)) )
+        dist<-simulate_infections(v, m, c(), B=1000)
+
+      }
+      dist$Freq <- (proba) * dist$Freq
+      dist = rbind(data.frame(temp=0, Freq = 1-proba), dist)
+      dist$Freq = dist$Freq/sum(dist$Freq)
+      data_temp[which(data_temp$pool == g), 'probability'] = unlist(apply(data_temp[which(data_temp$pool == g), ],
+                                                                          1,
+                                                                          function(x){as.numeric(dist$Freq[which(dist$temp == x['pos'])])}))
+      data_temp[which(data_temp$pool == g), 'probability_null'] = sapply(0:g, function(x){dbinom(x,g, prev_tot)})
+    }
+    
+
+    #### Compute the sensitivity
+    group_by(data_temp, pool, above.llod, limit) %>% 
+      summarize(pos=weighted.mean(pos, w=probability),
+                total.tests1=weighted.mean(total.tests, w=probability), 
+                tests.per.sample1=weighted.mean(tests.per.sample, w=probability)/mean(pool), # calculate tests per sample
+                tn1=weighted.mean(tn, w=probability), 
+                tp1=weighted.mean(tp, w=probability), 
+                fn1=weighted.mean(fn, w=probability), 
+                fp1=weighted.mean(fp, w=probability),
+                total.tests0=weighted.mean(total.tests, w=probability_null), 
+                tests.per.sample0=weighted.mean(tests.per.sample, w=probability_null)/mean(pool), # calculate tests per sample
+                tn0=weighted.mean(tn, w=probability_null), 
+                tp0=weighted.mean(tp, w=probability_null), 
+                fn0=weighted.mean(fn, w=probability_null), 
+                fp0=weighted.mean(fp, w=probability_null)) -> apw
+    
+    return(list(m=m, x=apw, pool = input$p))
    })
   
   output$matPlot <- renderPlot({
-    x =  dataInput()
-    if (is.null(x) == FALSE){
+    print("data input m")
+    print(dataInput()$m)
+    x =  dataInput()$m
+    if (is.null(x) == FALSE || (dataInput()$pool == 1)){
     #### Convert matrix into values
     heatmap(x, Rowv = FALSE, Colv = FALSE, keep.dendro = FALSE)
     }
   })
   
   output$distPlot <- renderPlot({
-    x =  dataInput()
+    x =  dataInput()$x
     
+    ggplot(x) +
+      geom_line(aes(x=pool, y=tp1/(tp1 + fn1), colour="red"),size=2) + 
+      geom_line(aes(x=pool, y=tp0/(tp0 + fn0), colour="black"),linetype = "dashed", size=1) + 
+      theme_bw()
     #hist(100, breaks = seq(from=0, to=100, by=2.5), col = "#75AADB", border = "white",
     #     xlab = "Probability (in %)",
     #     main ="Your probability distribution" )
