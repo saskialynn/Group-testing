@@ -6,8 +6,8 @@ library("shinyMatrix")
 source("preprocessing.R")
 source("MCMC.R")
 above.lod = 0.05  #### Need to update this depending on the LOD of the test
-prev_tot=0.01  ### Need to compute this based on the date and geographical location
 
+data = read_csv( "lookup_sensitivity.csv")
 v0 = rep(1:20)
 countries = read.csv("countries_names.csv")
 countries_list = list()
@@ -23,7 +23,7 @@ equivalences <- list("H" = 0.18, #https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e
                      "W" = 0.1,
                      "S" =	0.43,
                      "C" = 0.12)
-data = read_csv( "lookup_sensitivity.csv")
+
 ui <- fluidPage(
   
   # App title ----
@@ -35,6 +35,7 @@ ui <- fluidPage(
     
     # Sidebar panel for inputs ----
     sidebarPanel(
+      actionButton("go", "Launch Calculations"),
       numericInput(inputId = "p",
                    label = "What is the maximum number of people per pool?",
                    value = 20,
@@ -186,17 +187,13 @@ server <- function(input, output, session) {
     }
   })
   
-  #output$probs <- renderDataTable({
-  #output$region = renderUI({
-  #  country_regions = dplyr::filter(regions, country == input$country)
-  #  selectInput('region2', 'What region do you live in?', country_regions$region)
-  #})
-  
-  
-  dataInput <- reactive({
+  dataInput <- eventReactive(input$go, {
+    
+    
+    #### Step 0:
     #### Convert matrix into values
     if (is.null(input$where) == FALSE){
-      m = matrix(0, nrow(input$Correlation),nrow(input$Correlation))
+      m = matrix(0, nrow(input$Correlation), nrow(input$Correlation))
       diag(m) <- 1
       for (i in names(equivalences) ){
         if (sum(input$Correlation == i)>0){
@@ -207,39 +204,50 @@ server <- function(input, output, session) {
           }
         }
       }
-      v = v0[1:length(input$where)]
     }else{
       m= NULL
-      v = c()
     }
-    
-    #### return the appropriate entry in the data table
-    print(c(input$country, input$region, input$date_event))
+    G = ifelse(is.null(input$where), 0, nrow(input$Correlation))  ### size of the group
+    N = input$p
+    P = N - G
+    #### Step 1: load the participants data + location data. In the absence of data, assume homogeneity
     prevalences= fetch_all_prevalence(input$country, input$region,  input$date_event)
     prev_tot = prevalences$prev
+    ####### Step 1.a: Load participants
+    if (is.null(input$file1$datapath) == FALSE){
+      df <- read.csv(input$file1$datapath,
+                     header = TRUE,
+                     sep = ",")
+    }else{
+      df <- data.frame(matrix(0,nrow=input$p, ncol=15))
+      names(df) <- c("Age", "Sex", "Pregnant", "Chronic_Renal_Insufficiency" , "Diabetes",
+                     "Immunosuppression", "COPD", "Obesity", "Hypertension", "Tobacco", "Cardiovascular_Disease",
+                     "Asthma", "profession", "high_risk_contact","nb_people_hh")
+      df["prev"] = prev_tot
+    }
+    prev <- unlist(df["prev"], use.names = FALSE) ### all the different prevalences
+    print("prevalence is ")
+    print(prev)
+    print(input$where)
+    prev =  c(prev[as.numeric(input$where)], prev[setdiff(1:N, input$where)])  #### put it in the right order
+    
     data_temp = data %>% dplyr::filter((above.llod == 0.05) & (pool >= G))
-    data_temp$probability = 0
-    data_temp$probability_null = 0
+    data_temp$probability = 0   #### to store the appropriate weights (with correlations)
+    data_temp$probability_null = 0  ### under the null
     #### Do the simulations to compute the probabilities
-    for (g in max(2, length(v)):input$p){
-      if((g-length(v))>0){
-        proba = 1-exp(sum(log(1-v*prev_tot)) + sum(log(1-prev[1:(g-length(v))])))
-        dist<-simulate_infections(v, m, prev[1:(g-length(v))], B=1000)
-      }else{
-        print("Esta quai")
-        proba = 1-exp(sum(log(1-v*prev_tot)) )
-        dist<-simulate_infections(v, m, c(), B=1000)
-
-      }
-      dist$Freq <- (proba) * dist$Freq
-      dist = rbind(data.frame(temp=0, Freq = 1-proba), dist)
-      dist$Freq = dist$Freq/sum(dist$Freq)
+    withProgress(message = paste0('Running simulations across different pool sizes'), value = 0, {
+    for (g in max(1, G):input$p){
+      dist<-simulate_infections(G, g - G, m, prev, B=1000)
+      dist_null <-simulate_infections(0, g, NULL, prev, B=1000)
       data_temp[which(data_temp$pool == g), 'probability'] = unlist(apply(data_temp[which(data_temp$pool == g), ],
                                                                           1,
-                                                                          function(x){as.numeric(dist$Freq[which(dist$temp == x['pos'])])}))
-      data_temp[which(data_temp$pool == g), 'probability_null'] = sapply(0:g, function(x){dbinom(x,g, prev_tot)})
-    }
-    
+                                                                          function(x){as.numeric(dist$Freq[which(dist$n == x['pos'])])}))
+      data_temp[which(data_temp$pool == g), 'probability_null'] = unlist(apply(data_temp[which(data_temp$pool == g), ],
+                                                                               1,
+                                                                               function(x){as.numeric(dist_null$Freq[which(dist_null$n == x['pos'])])}))
+      incProgress(1/(input$p - max(1, G) + 1), detail = paste("*"))
+      }
+    })
 
     #### Compute the sensitivity
     group_by(data_temp, pool, above.llod, limit) %>% 
