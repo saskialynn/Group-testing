@@ -111,6 +111,7 @@ p(sum(x) = 3) =
 p(sum(x) = k | prevalence)
 
 # adapt to loop over different group sizes
+This loop also simulates the probability that someone becomes infected at all 
 ```{r}
 group_max <- 20 # maximum group size
 n <- 10000 # number of repetitions of simulation
@@ -175,8 +176,57 @@ dimnames(results_prev_01) <- list(0:group_max, 1:group_max) # rows = number posi
 
 ```
 
+GIVEN that there is an infected individual in the network, what is the probability that other people are infected? 
+Simulating propagation through household given there is an infected individual
+```{r}
+group_max <- 20 # maximum group size
+n <- 100000 # number of repetitions of simulation
+
+# fxn to calculate p(k positives | group size, prevalence)
+calc_probs <- function(N){ # N = group size, prev = prevalence
+  # create nodes
+  nodes <- tibble(id = 1:N)
+  
+  # Create edges 
+  from <- rep(1:N, each = (N-1))
+  to <- unlist(lapply(1:N, function(x) setdiff(1:N, x)))
+  
+  
+  infector <- numeric(n) # initial infectious individual in network
+  infected <- matrix(nrow = n, ncol = (N-1)) # secondary infected individuals
+  dimnames(infected) <- list(1:n, c(1:(N-1)))
+  
+  for (i in 1:n){
+  # generate matrix of transmission probabilities 
+  # household transmission- based on literature: 
+  # Secondary infection rate = 53% (95% confidence interval [CI] = 46%–60%)
+  Sigma <- matrix(runif(N^2, .4, .6), nrow = N, ncol = N) # generate random values from .1 to 0.9
+  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
+  diag(Sigma)= rep(1,N) # 1's on diagonal 
+  
+  transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
+  
+  edges <- as.data.frame(cbind(from, to, transmission_prob)) 
+    # choose starting infected individual
+    infector[i] <- sample(nodes$id, 1)
+    # infected[i,infector[i]] <- 1 # infector 
+    infect_contact <- edges[edges$from == infector[i],] 
+    infected[i,] <- unlist(lapply(infect_contact$transmission_prob, function(x) x > runif(1, min = 0, max = 1)))
+      # infected if contact rate > uniform(0,1)
+    }
+  
+  # store probability of sum(x)=k positives for given group size
+  probs <- c(unlist(lapply(0:(N-1), function(x) sum(rowSums(infected) == x)/n)), rep(0, group_max - N))
+  return(probs)
+}
 
 
+sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs)), nrow = (group_max), ncol = (group_max-1))
+dimnames(sim_probs_house) <- list(1:group_max, 2:group_max) 
+# rows = total number of infections (1: (group size)), columns = group size
+
+write.csv(sim_probs_house,"sim_probs_house.csv")
+```
 
 
 ```{r}
