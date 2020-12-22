@@ -9,6 +9,7 @@ library(network)
 library(ggplot2)
 library(dplyr)
 library(data.table)
+library(RColorBrewer)
 ```
 
 
@@ -183,7 +184,7 @@ group_max <- 20 # maximum group size
 n <- 100000 # number of repetitions of simulation
 
 # fxn to calculate p(k positives | group size, prevalence)
-calc_probs <- function(N){ # N = group size, prev = prevalence
+calc_probs <- function(N, min, max){ # N = group size, prev = prevalence
   # create nodes
   nodes <- tibble(id = 1:N)
   
@@ -200,7 +201,7 @@ calc_probs <- function(N){ # N = group size, prev = prevalence
   # generate matrix of transmission probabilities 
   # household transmission- based on literature: 
   # Secondary infection rate = 53% (95% confidence interval [CI] = 46%–60%)
-  Sigma <- matrix(runif(N^2, .4, .6), nrow = N, ncol = N) # generate random values from .1 to 0.9
+  Sigma <- matrix(runif(N^2, min, max), nrow = N, ncol = N) # generate random values from .1 to 0.9
   Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
   diag(Sigma)= rep(1,N) # 1's on diagonal 
   
@@ -220,12 +221,22 @@ calc_probs <- function(N){ # N = group size, prev = prevalence
   return(probs)
 }
 
+```
 
-sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs)), nrow = (group_max), ncol = (group_max-1))
+```{r}
+sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs, min = 0.4, max= 0.6)), nrow = (group_max), ncol = (group_max-1))
 dimnames(sim_probs_house) <- list(1:group_max, 2:group_max) 
 # rows = total number of infections (1: (group size)), columns = group size
 
 write.csv(sim_probs_house,"sim_probs_house.csv")
+```
+
+```{r}
+sim_probs_.1.2 <- matrix(unlist(lapply(2:20, calc_probs, min = 0.1, max= 0.2)), nrow = (group_max), ncol = (group_max-1))
+dimnames(sim_probs_.1.2) <- list(1:group_max, 2:group_max) 
+# rows = total number of infections (1: (group size)), columns = group size
+
+write.csv(sim_probs_.1.2,"sim_probs_.1.2.csv")
 ```
 
 
@@ -233,5 +244,109 @@ write.csv(sim_probs_house,"sim_probs_house.csv")
 # routes_network <- network(edge_list, vertex.attr = node_list, matrix.type = "edgelist", ignore.eval = FALSE)
 # plot(routes_network, vertex.cex = 3)
 ```
+
+```{r}
+# p <- c(0.001,0.01,0.03,0.05,0.1, 0.15)
+# p_names <- c("0.001","0.01","0.03","0.05","0.1", "0.15")
+# g <- 2:20
+# 
+# atleast1 <- function(p,g){1-(1-p)^g}
+# exact1 <- function(p,g){p*(1-p)^(g-1)}
+# atleast1(0.001, 7)
+# exact1(0.001, 7)
+# 
+# 
+# exact_results <- do.call(rbind, lapply(p, exact1, g))
+# row.names(exact_results) <- p_names
+# colnames(exact_results) <- 2:20
+# exact_results <- cbind(exact_results, colnames(exact_results), rownames(exact_results))
+# 
+# atleast_results <- do.call(rbind, lapply(p, atleast1, g))
+# row.names(atleast_results) <- p_names
+# colnames(atleast_results) <- 2:20
+# atleast_results <- matrix(atleast_results, dimnames=list(t(outer(colnames(atleast_results), rownames(atleast_results), FUN=paste)), NULL))
+# 
+# 
+# 
+# 
+# ggplot() +
+#   geom_line(allci_corr_indiv, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
+#   geom_line(allci_uncorr_sub, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
+#   facet_wrap(vars(factor(allci_corr_indiv$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+#   theme_bw() + 
+#   scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+#   xlab("Pool size") + ylab("Expected positive percent agreement") +
+#   ggtitle("Correlated Individuals") +
+#   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.75,1),breaks=seq(0.75,1,.1)) +
+#   guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+#   guides(linetype=guide_legend(title="Correlation Structure")) 
+```
+
+```{r}
+pool.max <- 20
+sim_probs <- read.csv("sim_probs_.1.2.csv")
+sim_probs[,1] <- NULL
+probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
+  rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1), function(prevalence) { # proportion positive tests 
+    rbindlist(lapply(0:p, function(positives) { # number of positives
+      
+      if (positives == 0) {
+        data.frame(
+          pool=p, 
+          pos=positives, 
+          prevalence=prevalence, 
+          prob_sim = (1-prevalence)^p,
+          prob_bin = dbinom(positives, p, prevalence))
+      } 
+      else {
+        data.frame(
+          pool=p,
+          pos=positives,
+          prevalence=prevalence,
+          # probability = dbinom(positives, p, prevalence)/n,
+          prob_sim = (1-(1-prevalence)^p)*sim_probs[positives, (p-1)], 
+          prob_bin = dbinom(positives, p, prevalence))
+      }
+    }))
+  }))
+}))
+
+colourCount <- length(unique(probs_dat$pos))
+myColors <- colorRampPalette(brewer.pal(9, "Set1"))(colourCount)
+
+# ggplot() +
+#   geom_line(probs_dat, mapping = aes(x=pool, y=probability, color=as.factor(pos))) +
+#   facet_wrap(vars(factor(probs_dat$prevalence, labels=c("0.001","0.01","0.03","0.05","0.1")))) +
+#   theme_bw() +
+#   scale_fill_manual(values = myColors, name="Prevalence") +
+#   xlab("Pool size") + ylab("Probability") +
+#   ggtitle("Simulated probability of k positives given prevalence and pool size") +
+#   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.1)) +
+#   guides(color=guide_legend(title="Number of\ntests positive"))
+
+ggplot(probs_dat, mapping = aes(x=pool, y=prob_sim, fill=as.factor(pos))) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_wrap(vars(factor(probs_dat$prevalence, labels=c("Prevalence = 0.001","0.01","0.03","0.05","0.1")))) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Number of\ntests positive") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Simulated probability of k positives given prevalence and pool size") +
+  scale_x_continuous(limits=c(0,21), breaks=seq(0,21,2)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.1))
+
+ggplot(probs_dat, mapping = aes(x=pool, y=prob_bin, fill=as.factor(pos))) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_wrap(vars(factor(probs_dat$prevalence, labels=c("0.001","0.01","0.03","0.05","0.1")))) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Number of\ntests positive") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Binomial probability of k positives given prevalence and pool size") +
+  scale_x_continuous(limits=c(0,21), breaks=seq(0,21,2)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.1)) 
+
+# probs_dat[probs_dat$prevalence == 0.1 & probs_dat$pos == 0, ]
+
+```
+
+
+
 
 

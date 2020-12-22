@@ -195,7 +195,8 @@ experiment_loop <- function(above, ct_dat){
             prevalence=prevalence,
             above.llod=above.lod[above],
             concentration=each.conc,
-            probability = dbinom(positives, p, prevalence)/n,
+            # probability = dbinom(positives, p, prevalence)/n,
+            probability = dbinom(positives, p, prevalence), 
             random=sample(n,n,replace = TRUE)/n, #
             z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                            sample(1:length(z_scores),n,replace=T))) %>%
@@ -213,7 +214,8 @@ experiment_loop <- function(above, ct_dat){
 }
 
 # apply the model loop to the fake correlated data
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
+#allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
+allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input))
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
@@ -234,21 +236,22 @@ all2 <- all %>%
 cpi <- as_tibble(BinomCI(all2$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
 allci <- bind_cols(all2,cpi)
 
-write.csv(allci,"model_output_corr.csv")
+write.csv(allci,"test.csv")
 ```
 
 
 ## Correlated INDIVIDUALS loop
 ### sampling data without accounting for correlation structure, weighting by the simulated probability of k positives given group size, prevalence
 ```{r probit_model}
-sim_probs_house <- read.csv("sim_probs_house.csv")
-sim_probs_house[,1] <- NULL
+# sim_probs_house <- read.csv("sim_probs_house.csv")
+# sim_probs_house[,1] <- NULL
 # rows = total number of infections (1: (group size)), columns = group size
-
+sim_probs_.1.2 <- read.csv("sim_probs_.1.2.csv")
+sim_probs_.1.2[,1] <- NULL
 
 ## NAIVE Loop - sampling data uniformly at random
 # Model loop, vary % above each LOD (simplified from original code)
-experiment_loop <- function(above, ct_dat){
+experiment_loop <- function(above, ct_dat, sim_probs){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
   # (1) generate additional set of C_t values with 5-30% of values above each LoD; subset to only valid Ct values (<45)
   # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
@@ -283,7 +286,7 @@ experiment_loop <- function(above, ct_dat){
             above.llod=above.lod[above],
             concentration=each.conc,
             # probability = dbinom(positives, p, prevalence)/n,
-            probability = (prevalence)*(1-prevalence)^(p-1)*sim_probs_house[positives, (p-1)],
+            probability = (1-(1-prevalence)^p)*sim_probs[positives, (p-1)],
             # rows = total number of infections (1: (group size)), columns = group size
             random=sample(n,n,replace = TRUE)/n, #
             z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
@@ -302,7 +305,7 @@ experiment_loop <- function(above, ct_dat){
 }
 
 # apply the model loop to the fake correlated data
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input))
+allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input, sim_probs = sim_probs_.1.2))
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
@@ -323,7 +326,7 @@ all2 <- all %>%
 cpi <- as_tibble(BinomCI(all2$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
 allci <- bind_cols(all2,cpi)
 
-write.csv(allci,"model_output_corr_individ.csv")
+write.csv(allci,"model_output_corr_indiv_.1.2.csv")
 ```
 
 
@@ -463,10 +466,23 @@ allci_corr_group1 <- read.csv("model_output_corr_groupfrac_1.csv")
 allci_corr_group34 <- read.csv("model_output_corr_groupfrac_34.csv")
 allci_corr_group12 <- read.csv("model_output_corr_groupfrac_12.csv")
 allci_corr_indiv <- read.csv("model_output_corr_individ.csv")
+allci_corr_indiv_12 <- read.csv("model_output_corr_indiv_.1.2.csv")
+test <- read.csv("test.csv")
 ```
 
 ```{r}
-ggplot(allci_corr_indiv, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
+ggplot(allci_corr_indiv_12, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
+  geom_line() +
+  facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + #scale_y_continuous(limits=c(0.9,1),breaks=seq(0.9,1,.01)) +
+  scale_y_log10() + 
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+```
+```{r}
+ggplot(test, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
   geom_line() +
   facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
   theme_bw() + 
@@ -475,7 +491,6 @@ ggplot(allci_corr_indiv, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence)
   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.5,1),breaks=seq(0.5,1,.1)) +
   guides(color=guide_legend(title="Proportion of\ntests positive"))
 ```
-
 
 ### Individual Plots
 ```{r generate_plots, eval=FALSE}
