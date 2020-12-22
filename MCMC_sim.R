@@ -8,7 +8,7 @@ calc_probs <- function(N, prev, min, max, B=1000){ # N = group size, prev = prev
     # generate matrix of transmission probabilities 
     # household transmission- based on literature: 
     # Secondary infection rate = 53% (95% confidence interval [CI] = 46%–60%)
-    #Sigma <- matrix(runif(N^2, min, max), nrow = N, ncol = N) # generate random values from .1 to 0.9
+    # Sigma <- matrix(runif(N^2, min, max), nrow = N, ncol = N) # generate random values from .1 to 0.9
     infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) 
     if (N >1){
       infected[i, infector[i]] <- 1 # infector 
