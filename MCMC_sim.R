@@ -13,7 +13,8 @@ calc_probs <- function(N, prev, min, max, B=1000){ # N = group size, prev = prev
     if (N >1){
       infected[i, infector[i]] <- 1 # infector 
       rest = setdiff(1:N, infector[i])
-      infected[i, rest] <- sapply(rest, function(x){rbinom(1,1,runif(N-1, min, max))})
+      infected[i, rest] <- min(1,sapply(rest, function(x){rbinom(1,1,runif(N-1, min, max))}) + sapply(rest, function(x){rbinom(1,1,prev)}))
+      
     }else{
       infected[i] = 1
     }
