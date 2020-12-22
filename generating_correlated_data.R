@@ -63,6 +63,10 @@ create_correlated_Cts <- function(type="block", N=4, rho=0.8, shape = 4.55, scal
 
 
 
+
+
+
+
 # Objective: generate data positively correlated with real data
 
 ####### A simple example #########

@@ -163,20 +163,26 @@ dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
 ```{r probit_model}
 ## NAIVE Loop - sampling data uniformly at random
 # Model loop, vary % above each LOD (simplified from original code)
+source("MCMC_sim.R") #
+pool.max = 20
 experiment_loop <- function(above, ct_dat){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
   # (1) generate additional set of C_t values with 5-30% of values above each LoD; subset to only valid Ct values (<45)
   # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
   threshold.ct <- c(sample(ct_set, n, replace=T)) # why do we sample ct_set with replacement? doesn't this create correlation?
   
-  rbindlist(lapply(1:pool.max, function (p) { # pool size
-    rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1,0.15), function(prevalence) { # proportion positive tests 
+  rbindlist(lapply(2:pool.max, function (p) { # pool size
+    rbindlist(lapply(c(0.001,0.01,0.05,0.1), function(prevalence) { # proportion positive tests 
+      
+      sim_probs = calc_probs(p, prevalence, min=0.6, max=0.8, B=1000)
       rbindlist(lapply(0:p, function(positives) { # number of positives
         
         if (positives == 0) {
           data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
                      above.llod = above.lod[above], 
-                     concentration=0, probability = dbinom(positives, p, prevalence), random=0, z.index=0,
+                     concentration=0, 
+                     probability = sim_probs[which(sim_probs$n == 0), "Freq"],
+                     probability_null = dbinom(positives, p, prevalence), random=0, z.index=0,
                      call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
         } 
         else {
@@ -196,7 +202,8 @@ experiment_loop <- function(above, ct_dat){
             above.llod=above.lod[above],
             concentration=each.conc,
             # probability = dbinom(positives, p, prevalence)/n,
-            probability = dbinom(positives, p, prevalence), 
+            probability = sim_probs[which(sim_probs$n == positives), "Freq"]/n,
+            probability_null = dbinom(positives, p, prevalence)/n,
             random=sample(n,n,replace = TRUE)/n, #
             z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                            sample(1:length(z_scores),n,replace=T))) %>%
@@ -214,17 +221,28 @@ experiment_loop <- function(above, ct_dat){
 }
 
 # apply the model loop to the fake correlated data
-#allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input))
+allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input_corr[,1]))
+#allfirst.poolct <- experiment_loop(above=1, ct_dat = ct_fake_input)
+allfirst.poolct2 = group_by(allfirst.poolct, pool, prevalence, above.llod, limit, pos) %>%
+  summarise_all(mean)
 
-group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
-  summarize(pos=weighted.mean(pos, w=probability),
+group_by(allfirst.poolct2, pool, prevalence, above.llod, limit) %>% 
+  summarize(pos1=weighted.mean(pos, w=probability),
+            pos_null=weighted.mean(pos, w=probability_null),
             total.tests=weighted.mean(tests, w=probability), 
+            total.tests_null=weighted.mean(tests, w=probability_null), 
             tests.per.sample=weighted.mean(tests, w=probability)/mean(pool), # calculate tests per sample
-            tn=weighted.mean(tn, w=probability), 
-            tp=weighted.mean(tp, w=probability), 
-            fn=weighted.mean(fn, w=probability), 
-            fp=weighted.mean(fp, w=probability)) -> apw
+            tests.per.sample_null=weighted.mean(tests, w=probability_null)/mean(pool),
+            tn1=weighted.mean(tn, w=probability), 
+            tp1=weighted.mean(tp, w=probability), 
+            fn1=weighted.mean(fn, w=probability), 
+            fp1=weighted.mean(fp, w=probability),
+            ppa = weighted.mean(tp/(fn + tp), w=probability, na.rm = TRUE),
+            ppa_null = weighted.mean(tp/(fn + tp), w=probability_null, na.rm = TRUE),
+            tn_null=weighted.mean(tn, w=probability_null), 
+            tp_null=weighted.mean(tp, w=probability_null), 
+            fn_null=weighted.mean(fn, w=probability_null), 
+            fp_null=weighted.mean(fp, w=probability_null)) -> apw
 
 rm(allfirst.poolct)
 
@@ -239,6 +257,42 @@ allci <- bind_cols(all2,cpi)
 write.csv(allci,"test.csv")
 ```
 
+```{r}
+ggplot(all, aes(x=pool, y= tp1/(tp1 + fn1), color=as.factor(prevalence))) + 
+  geom_line() +
+  facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + #scale_y_continuous(limits=c(0.9,1),breaks=seq(0.9,1,.01)) +
+  scale_y_log10() + 
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+```
+
+
+```{r}
+ggplot(all, aes(x=pool, y=tp_null/(tp_null + fn_null), color=as.factor(prevalence))) + 
+  geom_line() +
+  facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + #scale_y_continuous(limits=c(0.9,1),breaks=seq(0.9,1,.01)) +
+  scale_y_log10() + 
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+```
+```{r}
+ggplot(all, aes(x=pool, y=fn1, color=as.factor(prevalence))) + 
+  geom_line() +
+  geom_line(aes(x=pool, y=fn_null, color=as.factor(prevalence), linestyle="dashed"))+
+  facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + #scale_y_continuous(limits=c(0.9,1),breaks=seq(0.9,1,.01)) +
+  scale_y_log10() + 
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+```
 
 ## Correlated INDIVIDUALS loop
 ### sampling data without accounting for correlation structure, weighting by the simulated probability of k positives given group size, prevalence
@@ -251,7 +305,7 @@ sim_probs_.1.2[,1] <- NULL
 
 ## NAIVE Loop - sampling data uniformly at random
 # Model loop, vary % above each LOD (simplified from original code)
-experiment_loop <- function(above, ct_dat, sim_probs){
+experiment_loop_depr<- function(above, ct_dat, sim_probs){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
   # (1) generate additional set of C_t values with 5-30% of values above each LoD; subset to only valid Ct values (<45)
   # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
@@ -305,7 +359,7 @@ experiment_loop <- function(above, ct_dat, sim_probs){
 }
 
 # apply the model loop to the fake correlated data
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, ct_dat = ct_fake_input, sim_probs = sim_probs_.1.2))
+allfirst.poolct <- rbindlist(lapply(1, experiment_loop, ct_dat = ct_fake_input, sim_probs = sim_probs_.1.2))
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit) %>% 
   summarize(pos=weighted.mean(pos, w=probability),
@@ -328,7 +382,17 @@ allci <- bind_cols(all2,cpi)
 
 write.csv(allci,"model_output_corr_indiv_.1.2.csv")
 ```
-
+```{r}
+ggplot(apw, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
+  geom_line() +
+  facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Expected positive percent agreement") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + #scale_y_continuous(limits=c(0.9,1),breaks=seq(0.9,1,.01)) +
+  scale_y_log10() + 
+  guides(color=guide_legend(title="Proportion of\ntests positive"))
+```
 
 
 
@@ -418,7 +482,7 @@ experiment_loop_corr <- function(above, ct_dat){
 }
 
 start_time <- Sys.time()
-allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop_corr, ct_dat = ct_fake_input_corr))
+allfirst.poolct <- rbindlist(experiment_loop_corr, ct_dat = ct_fake_input_corr)
 end_time <- Sys.time()
 end_time-start_time
 
@@ -471,7 +535,7 @@ test <- read.csv("test.csv")
 ```
 
 ```{r}
-ggplot(allci_corr_indiv_12, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
+ggplot(apw, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
   geom_line() +
   facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
   theme_bw() + 
@@ -481,8 +545,10 @@ ggplot(allci_corr_indiv_12, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalen
   scale_y_log10() + 
   guides(color=guide_legend(title="Proportion of\ntests positive"))
 ```
+
+
 ```{r}
-ggplot(test, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
+ggplot(allci, aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence))) + 
   geom_line() +
   facet_wrap(vars(factor(above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
   theme_bw() + 

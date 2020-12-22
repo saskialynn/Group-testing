@@ -44,12 +44,11 @@ to <- unlist(lapply(1:N, function(x) setdiff(1:N, x)))
 
 # generate matrix of random transmission probabilities 
 d = -1
-while(d<1e-3){
-  Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
-  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
-  diag(Sigma)= rep(1,N) # 1's on diagonal 
-  d = det(Sigma)
-}
+
+Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
+Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
+diag(Sigma)= rep(1,N) # 1's on diagonal 
+
 
 transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
 
@@ -62,7 +61,7 @@ n <- 100 # number of repetitions of simulation
 infector <- numeric(n)
 infected <- matrix(nrow = n, ncol = N)
 dimnames(infected) <- list(1:n, c(1:N))
-v_long <- rep(1:10, each = 2)
+v_long <- rep(1,N) #rep(1:10, each = 2)
 v <- v_long[1:N]
 prev <- 0.01
 risk_probs <- prev*v
@@ -112,10 +111,11 @@ p(sum(x) = 3) =
 p(sum(x) = k | prevalence)
 
 # adapt to loop over different group sizes
+
 This loop also simulates the probability that someone becomes infected at all 
 ```{r}
 group_max <- 20 # maximum group size
-n <- 10000 # number of repetitions of simulation
+n <- 1000 # number of repetitions of simulation
 
 # fxn to calculate p(k positives | group size, prevalence)
 calc_probs <- function(N, prev){ # N = group size, prev = prevalence
@@ -129,14 +129,10 @@ calc_probs <- function(N, prev){ # N = group size, prev = prevalence
   
   # generate matrix of random transmission probabilities 
   # replace with values from the literature 
-  d = -1
-  while(d<1e-3){
-    Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
-    Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
-    diag(Sigma)= rep(1,N) # 1's on diagonal 
-    d = det(Sigma)
-  }
-  
+  Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
+  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
+  diag(Sigma)= rep(1,N) # 1's on diagonal 
+
   transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
   
   edges <- as.data.frame(cbind(from, to, transmission_prob)) 
@@ -181,50 +177,41 @@ GIVEN that there is an infected individual in the network, what is the probabili
 Simulating propagation through household given there is an infected individual
 ```{r}
 group_max <- 20 # maximum group size
-n <- 100000 # number of repetitions of simulation
+B <- 100000 # number of repetitions of simulation
 
 # fxn to calculate p(k positives | group size, prevalence)
-calc_probs <- function(N, min, max){ # N = group size, prev = prevalence
-  # create nodes
-  nodes <- tibble(id = 1:N)
+calc_probs <- function(N, prev, min, max, B=1000){ # N = group size, prev = prevalence
+  infector <- numeric(B) # initial infectious individual in network
+  infected <- matrix(nrow = B, ncol = N) # secondary infected individuals
+  dimnames(infected) <- list(1:B, c(1:N))
+  v = prev * rep(1,N)
+  proba = 1-exp(sum(log(1 - v)))
+  for (i in 1:B){
+    # generate matrix of transmission probabilities 
+    # household transmission- based on literature: 
+    # Secondary infection rate = 53% (95% confidence interval [CI] = 46%–60%)
+    #Sigma <- matrix(runif(N^2, min, max), nrow = N, ncol = N) # generate random values from .1 to 0.9
+    infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) 
+    infected[i, infector[i]] <- 1 # infector 
+    rest = setdiff(1:N, infector[i])
+    infected[i, rest] <- sapply(rest, function(x){rbinom(1,1,runif(N-1, min, max))})
+  }
   
-  # Create edges 
-  from <- rep(1:N, each = (N-1))
-  to <- unlist(lapply(1:N, function(x) setdiff(1:N, x)))
-  
-  
-  infector <- numeric(n) # initial infectious individual in network
-  infected <- matrix(nrow = n, ncol = (N-1)) # secondary infected individuals
-  dimnames(infected) <- list(1:n, c(1:(N-1)))
-  
-  for (i in 1:n){
-  # generate matrix of transmission probabilities 
-  # household transmission- based on literature: 
-  # Secondary infection rate = 53% (95% confidence interval [CI] = 46%–60%)
-  Sigma <- matrix(runif(N^2, min, max), nrow = N, ncol = N) # generate random values from .1 to 0.9
-  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
-  diag(Sigma)= rep(1,N) # 1's on diagonal 
-  
-  transmission_prob <- as.vector(Sigma)[Sigma != 1] # list of transmission probabilities, removing diagonals
-  
-  edges <- as.data.frame(cbind(from, to, transmission_prob)) 
-    # choose starting infected individual
-    infector[i] <- sample(nodes$id, 1)
-    # infected[i,infector[i]] <- 1 # infector 
-    infect_contact <- edges[edges$from == infector[i],] 
-    infected[i,] <- unlist(lapply(infect_contact$transmission_prob, function(x) x > runif(1, min = 0, max = 1)))
-      # infected if contact rate > uniform(0,1)
-    }
   
   # store probability of sum(x)=k positives for given group size
-  probs <- c(unlist(lapply(0:(N-1), function(x) sum(rowSums(infected) == x)/n)), rep(0, group_max - N))
-  return(probs)
+  temp <- apply(infected, 1, sum)
+  temp <- factor(temp, levels= 0:N)
+  res_temp = as.data.frame(table(temp))
+  res_temp$Freq = res_temp$Freq/B * proba
+  res_temp$Freq[1] = 1 - proba
+  names(res_temp) = c("n", "Freq")
+  return(res_temp)
 }
 
 ```
 
 ```{r}
-sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs, min = 0.4, max= 0.6)), nrow = (group_max), ncol = (group_max-1))
+sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs, prev = 0.01, min = 0.4, max= 0.6)), nrow = (group_max), ncol = (group_max-1))
 dimnames(sim_probs_house) <- list(1:group_max, 2:group_max) 
 # rows = total number of infections (1: (group size)), columns = group size
 
@@ -232,7 +219,9 @@ write.csv(sim_probs_house,"sim_probs_house.csv")
 ```
 
 ```{r}
-sim_probs_.1.2 <- matrix(unlist(lapply(2:20, calc_probs, min = 0.1, max= 0.2)), nrow = (group_max), ncol = (group_max-1))
+sim_probs_.1.2 <- matrix(unlist(lapply(2:20, calc_probs, prev, min = 0.1, max= 0.2)),
+                         nrow = (group_max),
+                         ncol = (group_max-1))
 dimnames(sim_probs_.1.2) <- list(1:group_max, 2:group_max) 
 # rows = total number of infections (1: (group size)), columns = group size
 
@@ -269,25 +258,27 @@ write.csv(sim_probs_.1.2,"sim_probs_.1.2.csv")
 # 
 # 
 # 
-# ggplot() +
-#   geom_line(allci_corr_indiv, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
-#   geom_line(allci_uncorr_sub, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
-#   facet_wrap(vars(factor(allci_corr_indiv$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
-#   theme_bw() + 
-#   scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
-#   xlab("Pool size") + ylab("Expected positive percent agreement") +
-#   ggtitle("Correlated Individuals") +
-#   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.75,1),breaks=seq(0.75,1,.1)) +
-#   guides(color=guide_legend(title="Proportion of\ntests positive")) + 
-#   guides(linetype=guide_legend(title="Correlation Structure")) 
+ ggplot() +
+   geom_line(allci_corr_indiv, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
+   geom_line(allci_uncorr_sub, mapping = aes(x=pool, y=tp/(tp + fn), color=as.factor(prevalence), linetype = corr_type)) +
+  facet_wrap(vars(factor(allci_corr_indiv$above.llod, labels=c("5% samples Ct>LoD","10% samples Ct>LoD","15% samples Ct>LoD","20% samples Ct>LoD","25% samples Ct>LoD","30% samples Ct>LoD")))) +
+   theme_bw() + 
+   scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+   xlab("Pool size") + ylab("Expected positive percent agreement") +
+   ggtitle("Correlated Individuals") +
+   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0.75,1),breaks=seq(0.75,1,.1)) +
+   guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+   guides(linetype=guide_legend(title="Correlation Structure")) 
 ```
 
 ```{r}
 pool.max <- 20
 sim_probs <- read.csv("sim_probs_.1.2.csv")
 sim_probs[,1] <- NULL
+
 probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
   rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1), function(prevalence) { # proportion positive tests 
+    sim_probs = calc_probs(p, prevalence,min=0.1, max=0.2)
     rbindlist(lapply(0:p, function(positives) { # number of positives
       
       if (positives == 0) {
@@ -295,7 +286,7 @@ probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
           pool=p, 
           pos=positives, 
           prevalence=prevalence, 
-          prob_sim = (1-prevalence)^p,
+          prob_sim = sim_probs[which(sim_probs$n == 0), "Freq"], 
           prob_bin = dbinom(positives, p, prevalence))
       } 
       else {
@@ -304,7 +295,7 @@ probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
           pos=positives,
           prevalence=prevalence,
           # probability = dbinom(positives, p, prevalence)/n,
-          prob_sim = (1-(1-prevalence)^p)*sim_probs[positives, (p-1)], 
+          prob_sim = sim_probs[which(sim_probs$n == positives), "Freq"], 
           prob_bin = dbinom(positives, p, prevalence))
       }
     }))
@@ -314,15 +305,15 @@ probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
 colourCount <- length(unique(probs_dat$pos))
 myColors <- colorRampPalette(brewer.pal(9, "Set1"))(colourCount)
 
-# ggplot() +
-#   geom_line(probs_dat, mapping = aes(x=pool, y=probability, color=as.factor(pos))) +
-#   facet_wrap(vars(factor(probs_dat$prevalence, labels=c("0.001","0.01","0.03","0.05","0.1")))) +
-#   theme_bw() +
-#   scale_fill_manual(values = myColors, name="Prevalence") +
-#   xlab("Pool size") + ylab("Probability") +
-#   ggtitle("Simulated probability of k positives given prevalence and pool size") +
-#   scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.1)) +
-#   guides(color=guide_legend(title="Number of\ntests positive"))
+ggplot() +
+  geom_line(probs_dat, mapping = aes(x=pool, y=prob_sim, color=as.factor(pos))) +
+  facet_wrap(vars(factor(probs_dat$prevalence, labels=c("0.001","0.01","0.03","0.05","0.1")))) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Prevalence") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Simulated probability of k positives given prevalence and pool size") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + scale_y_continuous(limits=c(0,1),breaks=seq(0,1,.1)) +
+  guides(color=guide_legend(title="Number of\ntests positive"))
 
 ggplot(probs_dat, mapping = aes(x=pool, y=prob_sim, fill=as.factor(pos))) +
   geom_bar(position = "stack", stat = "identity") +
@@ -332,6 +323,16 @@ ggplot(probs_dat, mapping = aes(x=pool, y=prob_sim, fill=as.factor(pos))) +
   xlab("Pool size") + ylab("Probability") +
   ggtitle("Simulated probability of k positives given prevalence and pool size") +
   scale_x_continuous(limits=c(0,21), breaks=seq(0,21,2)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.1))
+
+ggplot(probs_dat, mapping = aes(x=pool, y=prob_sim, fill=as.factor(pos))) +
+  geom_line() +
+  facet_wrap(vars(factor(probs_dat$prevalence, labels=c("Prevalence = 0.001","0.01","0.03","0.05","0.1")))) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Number of\ntests positive") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Simulated probability of k positives given prevalence and pool size") +
+  scale_x_continuous(limits=c(0,21), breaks=seq(0,21,2)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.1))
+
 
 ggplot(probs_dat, mapping = aes(x=pool, y=prob_bin, fill=as.factor(pos))) +
   geom_bar(position = "stack", stat = "identity") +
