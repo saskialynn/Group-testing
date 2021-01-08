@@ -113,6 +113,8 @@ probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
     }))
   }))
 }))
+
+write.csv(probs_dat, "probs_dat.csv")
 ```
 
 Plot the results using the different methods. 
@@ -162,6 +164,9 @@ dev.off()
 probs_dat %>%
   group_by(pool, prevalence) %>%
   summarise_all(sum)
+
+```
+```{r}
 
 ```
 
