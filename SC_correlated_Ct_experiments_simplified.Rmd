@@ -1,5 +1,5 @@
 ---
-title: "Correlated Data Experiments"
+title: "Correlated Ct Data Experiments"
 author: "Claire Donnat, Saskia Comess"
 date: "December 2020"
 output: html_document
