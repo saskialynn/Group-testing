@@ -21,7 +21,7 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
   infector <- numeric(B)
 
   if (G >=1){    #### if the group is not of size 0
-    infected <- matrix(nrow = G, ncol = B)
+    infected <- matrix(0, nrow = G, ncol = B)
     v = prev[1:G]
     print(1:G)
     print(prev)
@@ -29,13 +29,19 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
     proba = 1-exp(sum(log(1 - prev[1:G]))) #### proba that at least one is the group is infected
     #withProgress(message = paste0('Running ', B, ' simulations for pool size ', N), value = 0, {
     for (i in 1:B){
+      print(i)
       # choose starting infected individual (assume that we know that there is at least one infection)
       # transmit infection
-      infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) # choose initial infectious individual
-      infected[infector[i], i] <- 1 # infector 
-      rest = setdiff(1:G, infector[i]) # susceptible individuals
-      infected[rest, i] <- sapply(rest, function(x){rbinom(1,1,Sigma[infector[i], x])}) # infections transmitted in network
-      #incProgress(1/B, detail = paste("*"))
+      if (G>1){
+        infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) # choose initial infectious individual
+        infected[infector[i], i] <- 1 # infector 
+        rest = setdiff(1:G, infector[i]) # susceptible individuals
+        infected[rest, i] <- sapply(rest, function(x){rbinom(1,1,Sigma[infector[i], x])}) # infections transmitted in network
+      }else{
+        infector[i] <- 1
+        infected[infector[i], i] <- 1 # infector 
+      }
+      
     }
     #})
     temp <- apply(infected, 2, sum) # column sum
