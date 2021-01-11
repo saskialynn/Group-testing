@@ -1,10 +1,10 @@
-# nb_group <- 4
-# nb_out <- 5
+# nb_group <- 1
+# nb_out <- 1
 # N <- nb_group + nb_out
 # B <- 1000
 # Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
-# Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical 
-# diag(Sigma)= rep(1,N) # 1's on diagonal 
+# Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
+# diag(Sigma)= rep(1,N) # 1's on diagonal
 # prev <- .02*rep(1:(N))
 
 simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
@@ -37,7 +37,7 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
         infected[infector[i], i] <- 1 # infector 
         rest = setdiff(1:G, infector[i]) # susceptible individuals
         infected[rest, i] <- sapply(rest, function(x){rbinom(1,1,Sigma[infector[i], x])}) # infections transmitted in network
-      }else{
+      }else{ # when G = 1
         infector[i] <- 1
         infected[infector[i], i] <- 1 # infector 
       }
