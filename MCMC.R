@@ -23,13 +23,14 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
   if (G >=1){    #### if the group is not of size 0
     infected <- matrix(0, nrow = G, ncol = B)
     v = prev[1:G]
-    print(1:G)
+    print(N)
+    print(G)
     print(prev)
     print(v)
     proba = 1-exp(sum(log(1 - prev[1:G]))) #### proba that at least one is the group is infected
     #withProgress(message = paste0('Running ', B, ' simulations for pool size ', N), value = 0, {
     for (i in 1:B){
-      print(i)
+      # print(i)
       # choose starting infected individual (assume that we know that there is at least one infection)
       # transmit infection
       if (G>1){
