@@ -66,7 +66,7 @@ calc_probs1 <- function(N, min, max){ # N = group size, prev = prevalence
 sim_probs_house <- matrix(unlist(lapply(2:20, calc_probs1, min = 0.4, max= 0.6)), nrow = (group_max), ncol = (group_max-1))
 dimnames(sim_probs_house) <- list(1:group_max, 2:group_max) 
 # rows = total number of infections (1: (group size)), columns = group size
-write.csv(sim_probs_house,"sim_probs_.4.6.csv")
+#write.csv(sim_probs_house,"sim_probs_.4.6.csv")
 # write.csv(sim_probs_house,"sim_probs_house.csv")
 ```
 

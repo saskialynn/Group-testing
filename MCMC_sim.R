@@ -44,7 +44,7 @@ calc_probs_all_homogeneous<- function(N, prev, min, max, B=1e5, risk=NULL){ # N 
       k = rbinom(1,N, prev)
       add = 0
       #### Step 2: secondary attack
-      if(k>0){
+      if((k>0) & (k<N)){
         add = sum(sapply(1:N-k, function(j){rbinom(1, 1, 1-exp(sum(log(1-runif(k, min, max)))))}))
       }
     return(k+add)
