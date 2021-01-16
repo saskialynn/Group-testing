@@ -131,6 +131,7 @@ dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
 
 # Loops to vary % above each LOD for different combinations of pool size, prevalence, and positives
 ## experiment_loop: Correlated Individuals
+
 experiment_loop() calculates the weighted means using null probabilities (assuming no correlation between individuals, binomial distribution) and using simulated probabilities (accounting for correlated individuals, probability of transmission within network specified by min, max in the calc_probs() fxn) 
 ```{r correlated_individuals}
 ## NAIVE Loop - sampling data uniformly at random
@@ -152,7 +153,7 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
   rbindlist(lapply(1:pool.max, function (p) { # pool size
     rbindlist(lapply(c(0.001,0.01,0.05,0.1, 0.15), function(prevalence) { # prevalence ("proportion positive tests")
       # 0.001,0.01,0.05,0.1, 0.15
-      sim_probs <- calc_probs(p, prevalence, min=sim_min, max=sim_max, B=1000)
+      sim_probs <- calc_probs_all_homogeneous(p, prevalence, min=sim_min, max=sim_max, B=1000)
       # specify range of correlation to sample from (min, max)
       rbindlist(lapply(0:p, function(positives) { # number of positives
         
