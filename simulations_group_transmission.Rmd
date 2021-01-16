@@ -79,6 +79,7 @@ dimnames(sim_probs_.1.2) <- list(1:group_max, 2:group_max)
 write.csv(sim_probs_.1.2,"sim_probs_.1.2.csv")
 ```
 
+# Correlated Individuals
 Now we want to allow individuals in the network to be infected either by the outside community (probability = prevalence) or by a single starting infectious individual in the network. "MCMC_sim.R" contains the function that allows us to calculate this. 
 ```{r}
 source("MCMC_sim.R")
@@ -115,6 +116,8 @@ probs_dat <- rbindlist(lapply(2:pool.max, function (p) { # pool size
 }))
 
 write.csv(probs_dat, "probs_dat.csv")
+
+# test <- read.csv("probs_dat.csv")
 ```
 
 Plot the results using the different methods. 
@@ -166,8 +169,67 @@ probs_dat %>%
   summarise_all(sum)
 
 ```
+# "Realistic" Scenario
+Simulate probabilities uisng a more realistic scenario where groups are populated with a mixture of correlated and uncorrelated individuals. The MCMC.R script contains the function simulate_infections() that simulates these probabilities, taking the arguments nb_group (number of correlated individuals), nb_out (number of uncorrelated individuals), Sigma (correlation matrix), prev (prevalence vector), B (number of simulation repetitions, default B=1000)
 ```{r}
+source("MCMC.R") # contains simulate_infections() fxn
+pool.max <- 20
 
+probs_dat2 <- rbindlist(lapply(1:pool.max, function (p) { # pool size
+  # number of correlated individuals, number of uncorrelated individuals
+  nb_group <- trunc(.5*p)
+  nb_out <- p - nb_group
+   # create correlation matrix (function of number of correlated individuals)
+  Sigma <- matrix(runif(p^2, 0.1, 0.2), nrow = p, ncol = p) # generate random values from .1 to 0.9
+  Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
+  diag(Sigma)= rep(1,p) # 1's on diagonal
+  
+  rbindlist(lapply(c(0.001,0.01,0.03,0.05,0.1), function(prevalence) { # proportion positive tests 
+    prev <- runif(p, .25*prevalence, 4*prevalence)
+    sim_probs_real = simulate_infections(nb_group, nb_out, Sigma, prev)
+    rbindlist(lapply(0:p, function(positives) { # number of positives
+      
+      if (positives == 0) {
+        data.frame(
+          pool=p, 
+          pos=positives, 
+          prevalence=prevalence, 
+          prob_sim_real = sim_probs_real[which(sim_probs_real$n == 0), "Freq"])
+      } 
+      else {
+        data.frame(
+          pool=p,
+          pos=positives,
+          prevalence=prevalence,
+          # probability = dbinom(positives, p, prevalence)/n,
+          prob_sim_real = sim_probs_real[which(sim_probs_real$n == positives), "Freq"])
+      }
+    }))
+  }))
+}))
+
+
+write.csv(probs_dat2, "probs_dat_real.csv")
+# check 
+probs_dat2 %>%
+  group_by(pool, prevalence) %>%
+  summarise_all(sum)
+```
+
+```{r}
+colourCount <- length(unique(probs_dat2$pos))
+myColors <- colorRampPalette(brewer.pal(9, "Set1"))(colourCount)
+
+pdf("plot.simprobs_real.pdf",width=8, height=5)
+ggplot(probs_dat2, mapping = aes(x=pool, y=prob_sim_real, fill=as.factor(pos))) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_wrap(vars(factor(probs_dat2$prevalence, labels=c("Prevalence = 0.001","0.01","0.03","0.05","0.1")))) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Number of\ntests positive") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Simulated P(k positives | prevalence, pool size) for 'Realistic' Scenario") +
+  scale_x_continuous(limits=c(0,21), breaks=seq(0,21,2)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.1))
+dev.off()
 ```
 
 

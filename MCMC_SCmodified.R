@@ -1,25 +1,27 @@
-# nb_group <- 1
-# nb_out <- 1
+# nb_group <- 4
+# nb_out <- 3
 # N <- nb_group + nb_out
 # B <- 1000
-# Sigma <- matrix(runif(N^2, 0.1, 0.9), nrow = N, ncol = N) # generate random values from .1 to 0.9
+# Sigma <- matrix(runif(N^2, 0.1, 0.2), nrow = N, ncol = N) # generate random values from .1 to 0.9
 # Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
 # diag(Sigma)= rep(1,N) # 1's on diagonal
-# prev <- .02*rep(1:(N))
+# prev <- runif(N, 0, (2*.03))
+
 
 simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
   #### 
-  ## v is the vector of individual probabilities of becoming infected
-  ## Sigma is the matrix with the edge transmission probabilities
-  ## P is the remaining number of people to take into account
-  ## B is the number of simulations
+  ## v = vector of individual probabilities of becoming infected
+  ## Sigma = matrix with the edge transmission probabilities
+  ## nb_group = number of correlated individuals in network (nb_group = G)
+  ## nb_out = remaining number of people to take into account (uncorrelated individuals) (nb_out = P)
+  ## B = number of simulations
   ####
   #print(index_group)
   G = nb_group # number of correlated individuals infected by network
   N = nb_group + nb_out 
   P = nb_out # number uncorrelated individuals infected by community
   infector <- numeric(B)
-
+  
   if (G >=1){    #### if the group is not of size 0
     infected <- matrix(0, nrow = G, ncol = B)
     v = prev[1:G]
@@ -66,16 +68,24 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
     res_temp2 = data.frame(n = 0:N,
                            Freq=c(1, rep(0,N)))
   }
-    #### Step 3: Now add the rest of the people that do not necessarily belong to the group
-   res <- data.frame(n = 0:N,
-                      Freq = rep(0, N+1))
-   #print(res_temp)
-   #print(res_temp2)
-   
-   for (l in 0:N){ # loop over all people in group (N total)
-     for (k in 0:l){ 
-        res[l + 1, 2] = res[l + 1, 2] +  as.numeric(res_temp[which(res_temp$n == k), "Freq"]) * as.numeric(res_temp2[which(res_temp2$n == l- k), "Freq"])
-      }
+  #### Step 3: Now add the rest of the people that do not necessarily belong to the group
+  res <- data.frame(n = 0:N,
+                    Freq = rep(0, N+1))
+  #print(res_temp)
+  #print(res_temp2)
+  
+  for (l in 0:N){ # number of total positives in group
+    for (k in 0:l){ # number of positives from correlated fraction of group
+      res[l + 1, 2] = res[l + 1, 2] +  as.numeric(res_temp[which(res_temp$n == k), "Freq"]) * as.numeric(res_temp2[which(res_temp2$n == l- k), "Freq"])
     }
+  }
   return(res)
 }
+
+
+
+
+
+
+
+
