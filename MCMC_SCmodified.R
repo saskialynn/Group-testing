@@ -8,7 +8,7 @@
 # prev <- runif(N, 0, (2*.03))
 
 
-simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
+simulate_infections <- function(nb_group, nb_out, min,max, prev, B=1000){
   #### 
   ## v = vector of individual probabilities of becoming infected
   ## Sigma = matrix with the edge transmission probabilities
@@ -20,67 +20,42 @@ simulate_infections <- function(nb_group, nb_out, Sigma, prev, B=1000){
   G = nb_group # number of correlated individuals infected by network
   N = nb_group + nb_out 
   P = nb_out # number uncorrelated individuals infected by community
-  infector <- numeric(B)
   
-  if (G >=1){    #### if the group is not of size 0
-    infected <- matrix(0, nrow = G, ncol = B)
-    v = prev[1:G]
-    print(N)
-    print(G)
-    print(prev)
-    print(v)
-    proba = 1-exp(sum(log(1 - prev[1:G]))) #### proba that at least one is the group is infected
-    #withProgress(message = paste0('Running ', B, ' simulations for pool size ', N), value = 0, {
-    for (i in 1:B){
-      # print(i)
-      # choose starting infected individual (assume that we know that there is at least one infection)
-      # transmit infection
-      if (G>1){
-        infector[i] <- which(rmultinom(1, size = 1, prob= (v/sum(v))) > 0) # choose initial infectious individual
-        infected[infector[i], i] <- 1 # infector 
-        rest = setdiff(1:G, infector[i]) # susceptible individuals
-        infected[rest, i] <- sapply(rest, function(x){rbinom(1,1,Sigma[infector[i], x])}) # infections transmitted in network
-      }else{ # when G = 1
-        infector[i] <- 1
-        infected[infector[i], i] <- 1 # infector 
+  res = sapply(1:B, function(b){
+      #k = sum(sapply(1:N, function(i){ rbinom(1,1,v[i])} ))
+
+      add = 0
+      add2 = 0
+      k=0
+      if(G==1){
+        k = rbinom(1, 1, prev[1])
       }
-      
-    }
-    #})
-    temp <- apply(infected, 2, sum) # column sum
-    temp <- factor(temp, levels= 0:N)
-    res_temp = as.data.frame(table(temp))
-    res_temp$Freq = res_temp$Freq/B * proba # weight by probability of somebody being infected
-    res_temp$Freq[1] = 1 - proba # probability of nobody being infected
-    names(res_temp) = c("n", "Freq")
-  }else{
-    res_temp = data.frame(n = 0:N, Freq=c(1, rep(0,N)))
-  }
-  
-  if (P >=1){
-    temp2 <- sapply(1:B,function(x){sum(sapply(prev[(G+1):N], function(x) rbinom(1,1,x)))}) # total number infections transmitted from community
-    temp2 <- factor(temp2, levels= 0:(N))
-    res_temp2 = as.data.frame(table(temp2))
-    res_temp2$Freq = res_temp2$Freq/B
-    names(res_temp2) = c("n", "Freq")
-    print(res_temp2)
-  }else{
-    res_temp2 = data.frame(n = 0:N,
-                           Freq=c(1, rep(0,N)))
-  }
-  #### Step 3: Now add the rest of the people that do not necessarily belong to the group
-  res <- data.frame(n = 0:N,
-                    Freq = rep(0, N+1))
-  #print(res_temp)
-  #print(res_temp2)
-  
-  for (l in 0:N){ # number of total positives in group
-    for (k in 0:l){ # number of positives from correlated fraction of group
-      res[l + 1, 2] = res[l + 1, 2] +  as.numeric(res_temp[which(res_temp$n == k), "Freq"]) * as.numeric(res_temp2[which(res_temp2$n == l- k), "Freq"])
-    }
-  }
-  return(res)
+      if (G>1){
+        Sigma <- matrix(runif(G^2, min, max), nrow = G, ncol = G) # generate random values for transmission probs
+        Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
+        diag(Sigma)= rep(1,G) # 1's on diagonal
+        infected = sapply(1:G, function(i){rbinom(1, 1, prev[i])})
+        k = sum(infected)
+        #print(infected)
+        #### Step 2: secondary attack
+        if((k>0) &  (k<G)){
+            #add = sum(sapply(1:N-k, function(j){rbinom(1, 1, 1-exp(sum(log(1-runif(k, min, max)))))}))
+            add = sum(sapply(which(infected==0), function(j){rbinom(1, 1, 1-exp(sum(log(1-Sigma[j,which(infected==1)]))))}))
+        }
+      }
+      if (P>0){
+          add2 = sum(sapply((G+1):N, function(i){rbinom(1, 1, prev[i])}))
+      }
+      return(k + add + add2)
+  } )
+  temp <- factor(res, levels= 0:N)
+  res_temp = as.data.frame(table(temp))
+  res_temp$Freq = res_temp$Freq/B
+  names(res_temp) = c("n", "Freq")
+  return(res_temp)
 }
+
+
 
 
 
