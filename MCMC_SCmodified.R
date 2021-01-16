@@ -31,16 +31,16 @@ simulate_infections <- function(nb_group, nb_out, min,max, prev, B=1000){
         k = rbinom(1, 1, prev[1])
       }
       if (G>1){
-          #Sigma <- matrix(runif(G^2, min, max), nrow = G, ncol = G) # generate random values for transmission probs
-          #Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
-          #diag(Sigma)= rep(1,G) # 1's on diagonal
+        Sigma <- matrix(runif(G^2, min, max), nrow = G, ncol = G) # generate random values for transmission probs
+        Sigma = 0.5 * (Sigma + t(Sigma)) # make matrix symmetrical
+        diag(Sigma)= rep(1,G) # 1's on diagonal
         infected = sapply(1:G, function(i){rbinom(1, 1, prev[i])})
         k = sum(infected)
         #print(infected)
         #### Step 2: secondary attack
         if((k>0) &  (k<G)){
-            add = sum(sapply(1:N-k, function(j){rbinom(1, 1, 1-exp(sum(log(1-runif(k, min, max)))))}))
-            #add = sum(sapply(which(infected==0), function(j){rbinom(1, 1, 1-exp(sum(log(1-Sigma[j,which(infected==1)]))))}))
+            #add = sum(sapply(1:N-k, function(j){rbinom(1, 1, 1-exp(sum(log(1-runif(k, min, max)))))}))
+            add = sum(sapply(which(infected==0), function(j){rbinom(1, 1, 1-exp(sum(log(1-Sigma[j,which(infected==1)]))))}))
         }
       }
       if (P>0){
