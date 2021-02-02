@@ -273,6 +273,7 @@ allci <- bind_cols(all,cpi)
 ```
 
 ```{r}
+allci <- read.csv("correlated_exactprobs_Ct15.csv")
 ppa_plot <- ggplot() +
   geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
   geom_line(allci, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
@@ -340,10 +341,11 @@ t <- allfirst.poolct %>%
 ```{r}
 # table to nummerically summarize some of the graphical results
 summary_table <- allci %>%
-  mutate(ppa_diff=ppa - ppa_null) %>%
+  mutate(ppa_diff=ppa - ppa_null, 
+         test_diff=tests.per.sample - tests.per.sample_null) %>%
   filter(pool == 4 | pool == 18) %>%
   filter(prevalence == 0.001 | prevalence == 0.1) %>%
-  dplyr::select(pool, prevalence, tau, ppa_diff)
+  dplyr::select(pool, prevalence, tau, ppa_diff, ppa_null, test_diff, tests.per.sample_null)
 
 write.csv(summary_table, "summary_table_ppa.csv")
 ```
