@@ -162,23 +162,21 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
       rbindlist(lapply(c(0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5,  0.7), function(tau) {
         rbindlist(lapply(0:p, function(positives) { # number of positives
           #print(positives)
-           sim_probs <- sapply(1:n, function(x){return((compute_probas_level2_variation(p, prevalence, tau, tau_relative_var))$p)})
-           n_eff <- compute_neff(p, p, prevalence, tau)
-           prev_eff <- compute_p(p, prevalence, tau)
+           sim_probs <- rbindlist(lapply(1:n, function(x){return(cbind(x,compute_probas_level2_variation(p, prevalence, tau, tau_relative_var)))}))
            if (positives == 0) {
             # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
-            
             data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+                       exp = 1:n,
                        above.llod = above.lod[above], 
                        concentration=0, 
                        tau = tau,
                        tau_relative_var = tau_relative_var,
-                       n_eff = n_eff,
+                       n_eff = unique(sim_probs$n_eff),
                        probability = sim_probs[which(sim_probs$n == 0), "p"],
                        #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
                        probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
-                       prevalence_corr =prev_eff,
-                       probability_null = dbinom(positives, p, prev_eff), # prevalence corrected for correlated individuals
+                       prevalence_corr =unique(sim_probs$pi_eff),
+                       probability_null = sapply(unique(sim_probs$pi_eff), function(x){dbinom(positives, p, x)}), # prevalence corrected for correlated individuals
                        random=0, z.index=0,
                        call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
           } 
@@ -193,21 +191,19 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
             # calculation dilution based on number of positives (colSum) in total pool size (p)
 
             data.frame(
-              limit=lod,
-              pool=p,
-              pos=positives,
-              prevalence=prevalence,
-              above.llod=above.lod[above],
-              concentration=each.conc,
-              tau = tau,
-              n_eff = n_eff,
-              # probability = (1-(1-prevalence)^p)*sim_probs_.1.2[positives, (p-1)], # using network only infection probs
-              probability = sim_probs[which(sim_probs$n == positives), "p"]/n,
-              #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == positives), "p"]/n,
-              probability_null_test = dbinom(positives, p, prevalence)/n, 
-              prevalence_corr = prev_eff,
-              probability_null = dbinom(positives, p, prev_eff)/n,
-              random=sample(n,n,replace = TRUE)/n, #
+              limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+              exp = 1:n,
+                       above.llod = above.lod[above], 
+                       concentration=0, 
+                       tau = tau,
+                       tau_relative_var = tau_relative_var,
+                       n_eff = unique(sim_probs$n_eff),
+                       probability = sim_probs[which(sim_probs$n == positives), "p"],
+                       #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
+                       probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
+                       prevalence_corr =unique(sim_probs$pi_eff),
+                       probability_null = sapply(unique(sim_probs$pi_eff), function(x){dbinom(positives, p, x)}), # prevalence corrected for correlated individuals
+              random=sample(n,n,replace = TRUE), #
               z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                              sample(1:length(z_scores),n,replace=T))) %>%
               mutate(
@@ -239,7 +235,7 @@ test[which(test$n == 1)]
 #allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, sim_min = 0.1, sim_max = 0.2, ct_dat = ct_fake_input))
 allfirst.poolct <- rbindlist(lapply(3, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
 
-group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>% 
+group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau, exp) %>% 
   summarize(n_eff = mean(n_eff),
             pos1=weighted.mean(pos, w=probability),
             pos_null=weighted.mean(pos, w=probability_null),

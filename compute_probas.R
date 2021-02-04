@@ -18,9 +18,8 @@ compute_probas_level2_variation <- function(N, prev, tau, tau_relative_var){
   res[1] = (1-prev)^N
   tilde_tau = rnorm(N, log(tau/(1-tau)), sd=log(tau_relative_var)/2)
   tilde_tau  = 1/(1+exp(- tilde_tau))
-  
-  pi_eff = compute_p_level2(N,prev,tau)
-  N_eff = compute_corr_level2(N,prev,tau)
+  pi_eff = compute_p_level2(N,prev,tilde_tau)
+  rho = compute_corr_level2(N,prev,tilde_tau)
   
   for (K in 1:N){
     for (k in 1:K){
@@ -29,7 +28,7 @@ compute_probas_level2_variation <- function(N, prev, tau, tau_relative_var){
   }
   res_temp = data.frame(n = 0:N,
                         p = res,
-                        pi_eff = 1- (1-prev)^N,
+                        pi_eff = pi_eff,
                         n_eff= N/(1+(N-1) *rho))
   return(res_temp)
 }
@@ -118,7 +117,7 @@ compute_cov <- function(N, prev, tau){
 }
 
 
-compute_cov_level2 <- function(N, prev, tau){
+compute_corr_level2 <- function(N, prev, tau){
   p = compute_p_level2(N, prev, tau)
   A = 0
   B = 0
