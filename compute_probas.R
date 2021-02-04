@@ -11,6 +11,31 @@ compute_probas <- function(N, prev, tau){
   return(res_temp)
 }
 
+
+
+compute_probas_level2_variation <- function(N, prev, tau, tau_relative_var){
+  res = rep(0, N+1)
+  res[1] = (1-prev)^N
+  tilde_tau = rnorm(N, log(tau/(1-tau)), sd=log(tau_relative_var)/2)
+  tilde_tau  = 1/(1+exp(- tilde_tau))
+  
+  pi_eff = compute_p_level2(N,prev,tau)
+  N_eff = compute_corr_level2(N,prev,tau)
+  
+  for (K in 1:N){
+    for (k in 1:K){
+      res[K+1] = res[K+1]  + choose(N,k) * prev^k *(1-prev)^(N-k) * choose(N-k, K-k) * exp((N-K) *sum(log(1-tilde_tau[1:k]))) * (1-exp(sum(log(1-tilde_tau[1:k]))))^(K-k)
+    }
+  }
+  res_temp = data.frame(n = 0:N,
+                        p = res,
+                        pi_eff = 1- (1-prev)^N,
+                        n_eff= N/(1+(N-1) *rho))
+  return(res_temp)
+}
+
+
+
 compute_probas_subset <- function(N,n,prev, tau){
   res = rep(0, n + 1)
   p = (compute_probas(N, prev, tau))$p
@@ -26,7 +51,7 @@ compute_probas_subset <- function(N,n,prev, tau){
 
 compute_neff<- function(N, n, prev, tau){
   rho = compute_corr(N, prev, tau)
-  return(n/(1+ (n-1)* rho))
+  return(n/(1 + (n-1)* rho))
 }
 
 compute_discrepancy <- function(N, prev, tau){
@@ -63,14 +88,13 @@ compute_efficient_sample_size <- function(N, prev, tau, dist="Kolmogorov"){
 #   return(res_temp)
 # }
 
-compute_p <- function(N, prev, tau){
-  # A = 0
-  # for (k in 1:(N-1)){
-  #   A = A+ choose(N-1,k) * prev^k*(1-prev)^(N-1-k)* (1-(1-tau)^(k))
+compute_p_level2 <- function(N, prev, tau){
+   A = 0
+   for (k in 1:(N-1)){
+     A = A+ choose(N-1,k) * prev^k*(1-prev)^(N-1-k)* (1-exp(sum(log(1-tau[1:k]))))
   #   #print(A)
-  # }
-  # return(prev + (1-prev)*A)
-  return(1-(1-prev)*(1-tau*prev)^(N-1))
+   }
+  return(prev + (1-prev)*A)
 }
 
 compute_corr <- function(N, prev, tau){
@@ -92,6 +116,21 @@ compute_cov <- function(N, prev, tau){
   }
   return(prev^2 + 2 * prev * (1-prev) *A+ (1-prev)^2 * B - p^2)
 }
+
+
+compute_cov_level2 <- function(N, prev, tau){
+  p = compute_p_level2(N, prev, tau)
+  A = 0
+  B = 0
+  for (k in 0:(N-2)){
+    A = A+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[k+1]))))
+    if (k>0){
+      B = B+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[2:(k+1)]))))^2
+    }
+  }
+  return((prev^2 + 2 * prev * (1-prev) *A+ (1-prev)^2 * B - p^2)/(p*(1-p)))
+}
+
 
 
 compute_effective_parameters<- function(){
