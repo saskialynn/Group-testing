@@ -156,17 +156,17 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
   threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement
   
   rbindlist(lapply(1:pool.max, function (p) { # pool size
-    rbindlist(lapply(c(0.001,0.01, 0.03, 0.05,0.1), function(prevalence) { # prevalence ("proportion positive tests")
+    rbindlist(lapply(c(0.0001,0.001,0.005, 0.01, 0.03, 0.05, 0.1, 0.2), function(prevalence) { # prevalence ("proportion positive tests")
       # sim_probs <- calc_probs_all_homogeneous(p, prevalence, min=sim_min, max=sim_max, B=1000)
       # specify range of correlation to sample from (min, max)
-      rbindlist(lapply(c(0.1, 0.2, 0.3, 0.4, 0.5), function(tau) {
+      rbindlist(lapply(c(0, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), function(tau) {
         sim_probs <- compute_probas(p, prevalence, tau)
         n_eff <- compute_neff(p, p, prevalence, tau)
         prev_eff <- compute_p(p, prevalence, tau)
-        sim_subset_probs <- compute_probas_subset(50, p, prevalence, tau)
+        #sim_subset_probs <- compute_probas_subset(50, p, prevalence, tau)
         # sim_probs <- exact_probs(group_size = 1, tau = .2, pop_prev = .1)
         rbindlist(lapply(0:p, function(positives) { # number of positives
-          
+          #print(positives)
            if (positives == 0) {
             # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
             
@@ -174,17 +174,16 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
                        above.llod = above.lod[above], 
                        concentration=0, 
                        tau = tau, 
+                       n_eff = n_eff,
                        probability = sim_probs[which(sim_probs$n == 0), "p"],
-                       probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
+                       #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
                        probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
                        prevalence_corr =prev_eff,
-                       probability_null = dbinom(positives, n_eff, prev_eff), # prevalence corrected for correlated individuals
+                       probability_null = dbinom(positives, p, prev_eff), # prevalence corrected for correlated individuals
                        random=0, z.index=0,
                        call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
           } 
           else {
-            # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
-            prevalence_corr1 <- prev_corr(prevalence, tau, p)
             dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
             # sample data uniformly at random 
             # n samples of positives, rearrange into a matrix of positive rows, n columns
@@ -202,12 +201,13 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
               above.llod=above.lod[above],
               concentration=each.conc,
               tau = tau,
+              n_eff = n_eff,
               # probability = (1-(1-prevalence)^p)*sim_probs_.1.2[positives, (p-1)], # using network only infection probs
               probability = sim_probs[which(sim_probs$n == positives), "p"]/n,
-              probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == positives), "p"]/n,
+              #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == positives), "p"]/n,
               probability_null_test = dbinom(positives, p, prevalence)/n, 
               prevalence_corr = prev_eff,
-              probability_null = dbinom(positives, n_eff, prev_eff)/n,
+              probability_null = dbinom(positives, p, prev_eff)/n,
               random=sample(n,n,replace = TRUE)/n, #
               z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                              sample(1:length(z_scores),n,replace=T))) %>%
@@ -241,7 +241,8 @@ test[which(test$n == 1)]
 allfirst.poolct <- rbindlist(lapply(3, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>% 
-  summarize(pos1=weighted.mean(pos, w=probability),
+  summarize(n_eff = mean(n_eff),
+            pos1=weighted.mean(pos, w=probability),
             pos_null=weighted.mean(pos, w=probability_null),
             total.tests=weighted.mean(tests, w=probability), 
             total.tests_null=weighted.mean(tests, w=probability_null), 
@@ -257,11 +258,12 @@ group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>%
             tp_null=weighted.mean(tp, w=probability_null), 
             fn_null=weighted.mean(fn, w=probability_null), 
             fp_null=weighted.mean(fp, w=probability_null),
-            ppa_subset = weighted.mean(tp/(fn + tp), w=probability_subset1, na.rm = TRUE),
-            tn_subset =weighted.mean(tn, w=probability_subset1), 
-            tp_subset =weighted.mean(tp, w=probability_subset1), 
-            fn_subset =weighted.mean(fn, w=probability_subset1), 
-            fp_subset =weighted.mean(fp, w=probability_subset1)) -> apw
+            ppa_null_observed = weighted.mean(tp/(fn + tp), w=probability_null_test, na.rm = TRUE),
+            tests.per.sample_null_observed=weighted.mean(tests, w=probability_null_test)/mean(pool),
+            tn_null_observed=weighted.mean(tn, w=probability_null_test), 
+            tp_null_observed=weighted.mean(tp, w=probability_null_test), 
+            fn_null_observed =weighted.mean(fn, w=probability_null_test), 
+            fp_null_observed =weighted.mean(fp, w=probability_null_test)) -> apw
 # rm(allfirst.poolct)
 
 all <- as.data.frame(apw)
@@ -283,7 +285,7 @@ allci <- bind_cols(all,cpi)
 ```{r}
 #allci <- read.csv("correlated_exactprobs_Ct15.csv")
 ppa_plot <- ggplot() +
-  geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
+  geom_line(allci, mapping = aes(x=n_eff, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
   geom_line(allci, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
   facet_grid(cols = vars(factor(allci$tau, labels = c("Tau = 0.1", "0.2", "0.3", "0.4", "0.5")))) +
   theme_bw() + 
@@ -300,7 +302,7 @@ ppa_plot <- ggplot() +
 # Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
 #pdf("plot_test.pdf",width=8, height=5)  
 tests_plot <- ggplot() +
-  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
+  geom_line(allci, mapping = aes(x=n_eff, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
   geom_line(allci, mapping = aes(x=pool, y= tests.per.sample_null, color=as.factor(prevalence), linetype = "null")) +
   facet_grid(cols = vars(factor(allci$tau))) +
   theme_bw() + 
@@ -319,6 +321,46 @@ print(ggarrange(ppa_plot, tests_plot,
           common.legend = TRUE, legend = "right"))
 #dev.off()
 ```
+```{r}
+#allci <- read.csv("correlated_exactprobs_Ct15.csv")
+ppa_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y=ppa_null_observed, color=as.factor(prevalence),linetype="null")) +
+  facet_grid(cols = vars(factor(allci$tau, labels = c("Tau = 0.1", "0.2", "0.3", "0.4", "0.5")))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  # xlab("Pool size") + 
+  ylab("Expected PPA") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Community Prevalence")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+#pdf("plot_test.pdf",width=8, height=5)  
+tests_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample_null_observed, color=as.factor(prevalence), linetype = "null")) +
+  facet_grid(cols = vars(factor(allci$tau))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Community Prevalence")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+#dev.off()
+
+library(ggpubr)
+#pdf("plot_test.pdf",width=8, height=5)  
+print(ggarrange(ppa_plot, tests_plot, 
+          labels = c("A", "B"), 
+          ncol=1, nrow = 2, 
+          common.legend = TRUE, legend = "right"))
+#dev.off()
+```
+
 
 ```{r}
 # quick check: should have same results for null and alternative when pool size is 1
