@@ -18,8 +18,7 @@ exact_probs <- function(group_size, tau, pop_prev, tau_sample = FALSE, num_pools
   N <- group_size
   res <- data.frame(n = 0:N, Freq = rep(0, N+1))
   
-  
-  if (tau_sample=FALSE){
+  if(tau_sample==FALSE){
     res[1, 2] <- (1-pop_prev)^N
     for (L in 1:N){ # loop over total positives possible (1:group size)
       for (k in 1:L){ # loop over number of people infected outside
@@ -35,7 +34,7 @@ exact_probs <- function(group_size, tau, pop_prev, tau_sample = FALSE, num_pools
     r <- (2*tau) -1 # transform tau to between (-1,1)
     z <- .5*(log(1+r)-log(1-r)) # Fisher Z-transformation
     G <- num_pools #num_pools
-    r_norm <- rnorm(G, mean = z, sd = 1) # normal prior
+    r_norm <- rnorm(G, mean = z, sd = .1) # normal prior
     trans_prob <- (exp(2 * r_norm) - 1) / (exp(2 * r_norm) + 1)
     trans_prob1 <- .5*(trans_prob+1)
     
@@ -55,7 +54,8 @@ exact_probs <- function(group_size, tau, pop_prev, tau_sample = FALSE, num_pools
   return(res)
 }
 
-# test <- exact_probs(1, .2, .1)
+# test <- exact_probs(group_size = 10, tau = 0.1, pop_prev = 0.1, tau_sample = FALSE, num_pools = 5)
+# test2 <- exact_probs(group_size = 10, tau = 0.1, pop_prev =0.1, tau_sample = TRUE, num_pools = 5)
 # sum(test$Freq)
 
 
