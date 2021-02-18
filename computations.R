@@ -115,7 +115,7 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
                        k_eff = sim_probs$k_eff[1],
                        probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
                        #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-                       probability_null_test = dbinom(positives, p , prevalence), # uncorrected prevalence
+                       probability_null = dbinom(positives, p , prevalence), # uncorrected prevalence
                        probability_corr = dbinom(sim_probs$k_eff[1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
                        prevalence_corr = sim_probs$p[1],
                        pi = sim_probs$pi[1],
