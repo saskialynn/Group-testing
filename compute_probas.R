@@ -1,5 +1,5 @@
 source("compute_correlations.R")
-
+library(data.table)
 
 
 compute_probas <- function(N, prev, tau){
