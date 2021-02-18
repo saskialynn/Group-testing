@@ -1,18 +1,18 @@
 library(tidyverse)
 library(ggplot2)
-# library(fitdistrplus, lib.loc="~/R_libs")
-# library(DescTools, lib.loc="~/R_libs")
-# library(data.table, lib.loc="~/R_libs")
+library(fitdistrplus, lib.loc="~/R_libs")
+library(DescTools, lib.loc="~/R_libs")
+library(data.table, lib.loc="~/R_libs")
 library(dplyr)
 set.seed(42)
 
 n<-5000
-#source("/scratch/users/cdonnat/Group_testing/experiments/compute_probas.R") 
+source("/scratch/users/cdonnat/Group_testing/Group-testing/compute_probas.R") 
 pool.max = 100
 args = commandArgs(trailingOnly=TRUE)
 prevalence = as.numeric(args[1])
 tau = as.numeric(args[2])
-p = as.numeric(args[3])
+pool = as.numeric(args[3])
 mode = args[4]
 mode_prev = args[5]
 filename = args[6]
@@ -86,28 +86,29 @@ for(j in 1:length(above.lod)){
 
 
 
-experiment_loop <- function(above, ct_dat, p, prevalence, tau){
+experiment_loop <- function(above, ct_dat, pool.size, prev, tau){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
   # (1) generate additional set of C_t values with above = 5-30% of values above each LoD; subset to only valid Ct values (<45)
   # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
   threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement # prevalence ("proportion positive tests")
   
   A = rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) {
- print(tau_relative_var) 
+ print(c(pool.size, prev, tau, tau_relative_var, mode, mode_prev)) 
 
- sim_probs <- compute_probas_tauprev_var(N, prev, tau, alpha=tau_relative_var, alpha_prev=0,
+ sim_probs <- compute_probas_tauprev_var(pool.size, prev, tau, alpha=tau_relative_var, alpha_prev=0.05,
                                                      B=50000, mode =mode,
                                                      mode_prev=mode_prev)
-  rbindlist(lapply(0:p, function(positives) { # number of positives
+ rbindlist(lapply(0:pool.size, function(positives) { # number of positives
 #    print(positives)
           if (positives == 0) {
             # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
-            data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+            data.frame(limit=lod, pool=pool.size, pos=positives, prevalence=prevalence, 
                        above.llod = above.lod[above], 
                        concentration=0, 
                        mode = mode,
                        mode_prev =mode_prev,
                        tau = tau,
+                       prevalence = prev,
                        taus_tilde = sim_probs$tau[1],
                        tau_relative_var = tau_relative_var,
                        n_eff = sim_probs$n_eff[1],
@@ -115,7 +116,7 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
                        k_eff = sim_probs$k_eff[1],
                        probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
                        #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-                       probability_null = dbinom(positives, p , prevalence), # uncorrected prevalence
+                       probability_null = dbinom(positives, pool.size , prevalence), # uncorrected prevalence
                        probability_corr = dbinom(sim_probs$k_eff[1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
                        prevalence_corr = sim_probs$p[1],
                        pi = sim_probs$pi[1],
@@ -129,19 +130,20 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
             dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
             # sample data uniformly at random 
             # n samples of positives, rearrange into a matrix of positive rows, n columns
-            each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,
+            each.conc = -log2(colSums(2^-dat)/pool.size)+ifelse(dilution.vary.index==1,0,
                                                         rnorm(mean=0,sd=1.1,n=ncol(dat))) 
             # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
             # calculation dilution based on number of positives (colSum) in total pool size (p)
             z.index= probit.z.indices[probit.mode.index]
             
             tt = data.frame(
-              limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+              limit=lod, pool=pool.size, pos=positives, prevalence=prevalence, 
               above.llod = above.lod[above], 
               concentration=0, 
               mode = mode,
               mode_prev =mode_prev,
               tau = tau,
+              prevalence = prev,
               taus_tilde = sim_probs$tau[1],
               tau_relative_var = tau_relative_var,
               n_eff = sim_probs$n_eff[positives + 1],
@@ -149,7 +151,7 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
               k_eff = sim_probs$k_eff[positives + 1],
               probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
               #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-              probability_null = dbinom(positives,p , prevalence), # uncorrected prevalence
+              probability_null = dbinom(positives,pool.size , prevalence), # uncorrected prevalence
               probability_corr = dbinom(sim_probs$k_eff[positives + 1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
               prevalence_corr = sim_probs$p[1],
               pi = sim_probs$pi[1],
@@ -160,7 +162,7 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
                              sample(1:length(z_scores),n,replace=T))) %>%
               mutate(
                 call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
-                tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
+                tests=1 + pool * (call.each.conc), # number of tests done (number positive pools + pool size)
                 tn=0,
                 tp=1 * (call.each.conc),
                 fn=1 * (!call.each.conc),
@@ -172,9 +174,9 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
 
 }
 
-allfirst.poolct <- experiment_loop(3, ct_fake_input, p, prevalence, tau) # just for 15% Ct > LoD 
+allfirst.poolct <- experiment_loop(3, ct_fake_input, pool, prevalence, tau) # just for 15% Ct > LoD 
 
-modegroup_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var, mode, mode_prev) %>% 
+group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var, mode, mode_prev) %>% 
   summarize(pos1=weighted.mean(pos, w=probability),
             n_eff = mean(n_eff),
             prevalence_corr = mean(prevalence_corr),

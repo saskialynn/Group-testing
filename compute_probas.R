@@ -1,6 +1,6 @@
-#setwd("/scratch/users/cdonnat/Group_testing/Group-testing/")
+setwd("/scratch/users/cdonnat/Group_testing/Group-testing/")
 source("compute_correlations.R")
-library(data.table)
+library(data.table, lib.loc="~/R_libs")
 
 
 compute_probas <- function(N, prev, tau){
@@ -55,7 +55,6 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
     }
   }
 
-  
   pi_eff = compute_p_tauprev_var(N, prev, tau, alpha, alpha_prev,
                                  B=10000, mode=mode, mode_prev = mode_prev)
   rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev, p = pi_eff,
@@ -66,8 +65,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
     sum(sapply(prevs(N), function(x){rbinom(1,1,x)}))}), levels= 0:(N))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
-  
-  
+    
   simulations<- rbindlist(lapply(1:B, function(b){
     res = rep(0, N+1)
     res[1] =  probs$Freq[1]

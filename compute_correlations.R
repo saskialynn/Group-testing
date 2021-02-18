@@ -74,16 +74,27 @@ compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000,
     }
   }
   
-  
+  #print("Esta aqui") 
+  #print(prevs(2))
+a = mean(prevs(B)) 
+if (N>1){
   probs <- factor(sapply(1:B, function(b){ 
     sum(sapply(prevs(N-1), function(x){rbinom(1,1,x)}))}), levels= 0:(N-1))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
-    
-  return(
-      sum(apply(sapply(1:B, function(b){
+}else{
+probs = data.frame(probs = c(0,1), Freq = c(1-a, a))
+}
+
+if (N>1){
+A = sum(apply(sapply(1:B, function(b){
         sapply(1:(N-1), function(K){
-          (1-exp(sum(log(1- taus(K)))))})}),1,mean) *probs$Freq[2:N])* (1-mean(prevs(B))) + mean(prevs(B))
+          (1-exp(sum(log(1- taus(K)))))})}),1,mean) *probs$Freq[2:N])
+}else{
+ A = 0
+}
+return(
+      A * (1-mean(prevs(B))) + mean(prevs(B))
   )
   
 }
@@ -168,22 +179,43 @@ compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
                               B=B, mode=mode, mode_prev = mode_prev)
   }
   
+  if (N>2){
   probs <- factor(sapply(1:B, function(b){ 
     sum(sapply(prevs(N-2), function(x){rbinom(1,1,x)}))}), levels= 0:(N-2))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
-  
+  #print(paste0("yolo", p))
+  #print(probs)
   pi = mean(prevs(B))
-  A = sum(apply(sapply(1:B, function(b){
+  A = sapply(1:B, function(b){
     log_taus = log(1- taus(2*N))
+    #print("hi")
     a = sapply(1:(N-2), function(K){
       (1-exp(sum(log_taus[1:(K+1)])))})
+   # print(a)
     b = sapply(1:(N-2), function(K){
       (1-exp(sum(log_taus[1:(K)])))*(1-exp(sum(log_taus[(N+1):(N+K)])))})
-    
+    #print(b)
     return(2* a * (1-pi)  *pi  + b *(1- pi)^2)
-  }), 1, mean) * probs$Freq[2:(N-1)] )
+  })
+  if (N>3){ A = sum(apply(A, 1, mean) * probs$Freq[2:(N-1)] )
+  }else{
+    A = mean(A) * probs$Freq[2]
+  } 
+  #print("A is done")
+ #print(pi)
   return( (A  + pi^2 - p^2)/(p*(1-p)))
+}else{
+  if (N == 1){ 
+       return(0) 
+  }else{
+       A = pi^2 + 2 * pi*(1-pi) * means(taus(B))
+       return((A - p^2)/(p*(1-p)))
+   
+  }
+
+
+}
 }
 
 
