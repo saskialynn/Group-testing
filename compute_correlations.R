@@ -36,8 +36,8 @@ compute_p_tau_var <- function(N, prev, tau, alpha, mode="multiplicative"){
   return(prev + (1-prev)*A)
 }
 
-compute_p_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, B=10000, 
-                                  mode="multiplicative"){
+compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000, 
+                                  mode="none"){
   #### Compute p with variable tau  and prev (assumes whole group is tested)
   #### when both prev and tau are vectors
   #### INPUT
@@ -55,15 +55,15 @@ compute_p_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, B=10000,
   if (mode == "uniform"){
     beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
     taus  <- function(k){runif(k, tau-beta, tau+beta)}
-    beta_prev = ifelse(alpha>tau, tau,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta, prev + beta_prev)}
+    beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
+    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
   }else{
     taus  <- function(k){rep(tau,k)}
     prevs  <- function(k){rep(prev,k)}
   }
   
   probs <- factor(sapply(1:B, function(b){ 
-    sum(sapply(prevs(N-1),function(x){rbinom(B,1,x)}))}, levels= 0:(N-1)))
+    sum(sapply(prevs(N-1), function(x){rbinom(1,1,x)}))}), levels= 0:(N-1))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
     
@@ -131,30 +131,34 @@ compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
   if (mode == "uniform"){
     beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
     taus  <- function(k){runif(k, tau-beta, tau+beta)}
-    beta_prev = ifelse(alpha>tau, tau,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta, prev + beta_prev)}
+    beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
+    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
   }else{
     taus  <- function(k){rep(tau,k)}
     prevs  <- function(k){rep(prev,k)}
   }
+  
   if (is.null(p)){
-    p = compute_p_tauprev_var(N, prev, tau, alpha=alpha, B=B, mode=mode)
+    p = compute_p_tauprev_var(N, prev, tau, alpha=alpha, alpha_prev = alpha_prev,
+                              B=B, mode=mode)
   }
   
   probs <- factor(sapply(1:B, function(b){ 
-    sum(sapply(prevs(N-2),function(x){rbinom(B,1,x)}))}, levels= 0:(N-2)))
+    sum(sapply(prevs(N-2), function(x){rbinom(1,1,x)}))}), levels= 0:(N-2))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
   
+  pi = mean(prevs(B))
   A = sum(apply(sapply(1:B, function(b){
     log_taus = log(1- taus(2*N))
     a = sapply(1:(N-2), function(K){
       (1-exp(sum(log_taus[1:(K+1)])))})
     b = sapply(1:(N-2), function(K){
       (1-exp(sum(log_taus[1:(K)])))*(1-exp(sum(log_taus[(N+1):(N+K)])))})
-    return(2* a * (1-mean(prevs)) *mean(prevs) + b *(1- mean(prevs))^2)
+    
+    return(2* a * (1-pi)  *pi  + b *(1- pi)^2)
   }), 1, mean) * probs$Freq[2:(N-1)] )
-  return( (A  + mean(prevs)^2-p^2)/(p*(1-p)))
+  return( (A  + pi^2 - p^2)/(p*(1-p)))
 }
 
 

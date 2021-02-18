@@ -15,8 +15,8 @@ compute_probas <- function(N, prev, tau){
   return(res_temp)
 }
 
-compute_probas_tauprev_var <- function(N, prev, tau, alpha, alpha_prev,
-                                            B=10000, mode="multiplicative"){
+compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
+                                            B=10000, mode="none"){
   #### Compute p with variable tau  and prev (assumes whole group is tested)
   #### when both prev and tau are vectors
   #### INPUT
@@ -34,34 +34,42 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha, alpha_prev,
   if (mode == "uniform"){
     beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
     taus  <- function(k){runif(k, tau-beta, tau+beta)}
-    beta_prev = ifelse(alpha>tau, tau,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta, prev + beta_prev)}
+    beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
+    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
   }else{
     taus  <- function(k){rep(tau,k)}
     prevs  <- function(k){rep(prev,k)}
   }
   
-  pi_eff = compute_p_tauprev_var(N, prev, tilde_tau, alpha, alpha_prev,
+  pi_eff = compute_p_tauprev_var(N, prev, tau, alpha, alpha_prev,
                                  B=10000, mode=mode)
-  rho = compute_corr_tauprev_var(N, prev, tilde_tau, alpha, alpha_prev,
+  rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev,
                                  B=10000, mode=mode)
   probs <- factor(sapply(1:B, function(b){ 
-    sum(sapply(prevs(N),function(x){rbinom(B,1,x)}))}, levels= 0:(N)))
+    sum(sapply(prevs(N), function(x){rbinom(1,1,x)}))}), levels= 0:(N))
   probs = as.data.frame(table(probs))
   probs$Freq = probs$Freq/B
   
   
   simulations<- rbindlist(lapply(1:B, function(b){
-    tilde_tau = taus(N)
     res = rep(0, N+1)
-    res[1] = exp(sum(log((1-prevs(N)))))
-    for (K in 1:N){
+    res[1] =  probs$Freq[1]
+    res[2] = probs$Freq[2] * exp( sum(log(1-taus((N-1)))))
+    for (K in 2:N){
       for (k in 1:K){
-        res[K+1] = res[K+1]  + probs$Freq[k+1]  * choose(N-k, K-k) * exp( sum(log(1-taus((N-K)*k)))) * sum(sapply(1:(K-k), function(){(1-exp(sum(log(1-taus(k)))))}))
+        res[K+1] = res[K+1]  + 
+          probs$Freq[k+1] * choose(N-k, K-k)  * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
       }
     }
+    if (abs(sum(res) -1) > 10/B){
+      return("Error computation for the probability")
+    }else{
+    res = res/sum(res)  #### (numerical imprecision up to order B due to the approximation of B)
+    }
+    
     res_temp = data.frame(n = 0:N,
                           p = res,
+                          rho=rho,
                           pi_eff = pi_eff,
                           n_eff= N/(1+(N-1) *rho),
                           prob_null_eff = sapply(0:N, function(positives){dbinom(positives, N, pi_eff )}))
