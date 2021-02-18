@@ -1,19 +1,27 @@
 library(tidyverse)
 library(ggplot2)
-library(fitdistrplus)
-library(DescTools)
-library(data.table)
+library(fitdistrplus, lib.loc="~/R_libs")
+library(DescTools, lib.loc="~/R_libs")
+library(data.table, lib.loc="~/R_libs")
 library(dplyr)
 set.seed(42)
 
 n<-10000
-source("compute_probas.R") 
+#source("compute_probas.R") 
 pool.max = 100
 args = commandArgs(trailingOnly=TRUE)
-prev = as.numeric(args[1])
+prevalence = as.numeric(args[1])
 tau = as.numeric(args[2])
 p = as.numeric(args[3])
 filename = args[4]
+x<-50000
+
+# probit data input
+probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
+probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
+probit<-probit_t[,c(2,4,3)]
+probit<-probit[order(probit$z_value,probit$ct_value),]
+z_scores<-as.numeric(unlist(distinct(probit,z_value)))
 
 probit.mode<-c("base","dsa.lower","dsa.upper","psa") 
 probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
@@ -25,7 +33,51 @@ tests <- data.table::fread("alltests_1mar24jun_v1.csv")
 # Keep only valid positive ct values for first tests
 tests %>% filter(result == "positive", firsttest==TRUE,!is.na(cttarget)) %>% pull(cttarget) -> cts
 
+compute_probas_level2_variation <- function(N, prev, tau, tau_relative_var, B=10000){
+  simulations<- rbindlist(lapply(1:B, function(b){
+  tilde_tau = rnorm(N, log(tau/(1-tau)), sd=log(tau_relative_var)/2)
+  tilde_tau  = 1/(1+exp(- tilde_tau))
+  pi_eff = compute_p_level2(N,prev,tilde_tau)
+  rho = compute_corr_level2(N,prev,tilde_tau)
+  res = rep(0, N+1)
+  res[1] = (1-prev)^N
+  for (K in 1:N){
+    for (k in 1:K){
+      res[K+1] = res[K+1]  + choose(N,k) * prev^k *(1-prev)^(N-k) * choose(N-k, K-k) * exp((N-K) *sum(log(1-tilde_tau[1:k]))) * (1-exp(sum(log(1-tilde_tau[1:k]))))^(K-k)
+    }
+  }
+  res_temp = data.frame(n = 0:N,
+                        p = res,
+                        pi_eff = pi_eff,
+                        n_eff= N/(1+(N-1) *rho),
+                        prob_null_eff = sapply(0:N, function(positives){dbinom(positives, N, pi_eff )}))
+  
+  }))
+  return(simulations %>% group_by(n) %>% summarize_all(mean))
+}
 
+
+compute_p_level2 <- function(N, prev, tau){
+   A = 0
+   for (k in 1:(N-1)){
+     A = A+ choose(N-1,k) * prev^k*(1-prev)^(N-1-k)* (1-exp(sum(log(1-tau[1:k]))))
+  #   #print(A)
+   }
+  return(prev + (1-prev)*A)
+}
+
+compute_corr_level2 <- function(N, prev, tau){
+  p = compute_p_level2(N, prev, tau)
+  A = 0
+  B = 0
+  for (k in 0:(N-2)){
+    A = A+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[k+1]))))
+    if (k>0){
+      B = B+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[2:(k+1)]))))^2
+    }
+  }
+  return((prev^2 + 2 * prev * (1-prev) *A+ (1-prev)^2 * B - p^2)/(p*(1-p)))
+}
 
 # Fit distributions
 fw <- fitdist(cts, "weibull")
@@ -72,12 +124,6 @@ for(j in 1:length(above.lod)){
 }
 
 
-# probit data input
-probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
-probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
-probit<-probit_t[,c(2,4,3)]
-probit<-probit[order(probit$z_value,probit$ct_value),]
-z_scores<-as.numeric(unlist(distinct(probit,z_value)))
 
 
 
@@ -90,9 +136,11 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
   threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement # prevalence ("proportion positive tests")
   
   A = rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) {
-  sim_probs <- compute_probas_level2_variation(p, prevalence, tau, tau_relative_var)
+print(tau_relative_var) 
+
+ sim_probs <- compute_probas_level2_variation(p, prevalence, tau, tau_relative_var)
   rbindlist(lapply(0:p, function(positives) { # number of positives
-    print(positives)
+#    print(positives)
           if (positives == 0) {
             # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
             data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
@@ -149,10 +197,12 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
 
 }
 
-allfirst.poolct <- experiment_loop(above, ct_fake_input, p, prevalence, tau) # just for 15% Ct > LoD 
+allfirst.poolct <- experiment_loop(3, ct_fake_input, p, prevalence, tau) # just for 15% Ct > LoD 
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var) %>% 
   summarize(pos1=weighted.mean(pos, w=probability),
+            n_eff = mean(n_eff),
+            prevalence_corr = mean(prevalence_corr),
             pos_null=weighted.mean(pos, w=probability_null),
             total.tests=weighted.mean(tests, w=probability), 
             total.tests_null=weighted.mean(tests, w=probability_null), 
@@ -170,4 +220,4 @@ group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_
             fp_null=weighted.mean(fp, w=probability_null)) -> apw
 
 
-write.csv(res_tot, file = paste0("/scratch/users/cdonnat/Group_testing/experiments/", filename, ".csv" ))
+write.csv(apw, file = paste0("/scratch/users/cdonnat/Group_testing/experiments/", filename, ".csv" ))

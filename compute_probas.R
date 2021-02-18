@@ -1,4 +1,4 @@
-source("compute_correlations.R")
+source("/scratch/users/cdonnat/Group_testing/Group-testing/compute_correlations.R")
 library(data.table)
 
 
