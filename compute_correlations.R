@@ -37,7 +37,7 @@ compute_p_tau_var <- function(N, prev, tau, alpha, mode="multiplicative"){
 }
 
 compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000, 
-                                  mode="none"){
+                                  mode="none",mode_prev="none"){
   #### Compute p with variable tau  and prev (assumes whole group is tested)
   #### when both prev and tau are vectors
   #### INPUT
@@ -48,19 +48,32 @@ compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000,
   #### alpha   : parameter of the variability of transmissibility within the group  (matrix N xN)
   #### mode    : generating mechanism for taus
   #### -------------------------------------------------------------------------
-  if(mode == "multiplicative"){
-    taus <- function(k){1/(1+ exp(-rnorm(k, log(tau/(1-tau)), sd = log(alpha)/2)))}
-    prevs  <- function(k){1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))}
+  taus  <- function(k){
+    beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
+    if(mode == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+    }else{
+      if(mode == "uniform"){
+        return(runif(k, tau - beta, tau + beta ))
+      }
+      else{
+        return(rep(tau,k))
+      }
+    }
   }
-  if (mode == "uniform"){
-    beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
-    taus  <- function(k){runif(k, tau-beta, tau+beta)}
+  prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
-  }else{
-    taus  <- function(k){rep(tau,k)}
-    prevs  <- function(k){rep(prev,k)}
+    if(mode_prev == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+    }else{
+      if(mode_prev == "uniform"){
+        return(runif(k, prev - beta_prev, prev + beta_prev))
+      }else{
+        return(rep(prev,k))
+      }
+    }
   }
+  
   
   probs <- factor(sapply(1:B, function(b){ 
     sum(sapply(prevs(N-1), function(x){rbinom(1,1,x)}))}), levels= 0:(N-1))
@@ -113,7 +126,7 @@ compute_joint <- function(N, prev, tau){
 
 
 compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
-                                     B=10000, mode="multiplicative"){
+                                     B=10000, mode="multiplicative",mode_prev="none"){
   #### Compute p with variable tau  and prev (assumes whole group is tested)
   #### when both prev and tau are vectors
   #### INPUT
@@ -124,23 +137,35 @@ compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
   #### alpha   : parameter of the variability of transmissibility within the group  (matrix N xN)
   #### mode    : generating mechanism for taus
   #### -------------------------------------------------------------------------
-  if(mode == "multiplicative"){
-    taus <- function(k){1/(1+ exp(-rnorm(k, log(tau/(1-tau)), sd = log(alpha)/2)))}
-    prevs  <- function(k){1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))}
+  taus  <- function(k){
+    beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
+    if(mode == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+    }else{
+      if(mode == "uniform"){
+        return(runif(k, tau - beta, tau + beta ))
+      }
+      else{
+        return(rep(tau,k))
+      }
+    }
   }
-  if (mode == "uniform"){
-    beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
-    taus  <- function(k){runif(k, tau-beta, tau+beta)}
+  prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
-  }else{
-    taus  <- function(k){rep(tau,k)}
-    prevs  <- function(k){rep(prev,k)}
+    if(mode_prev == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+      }else{
+        if(mode_prev == "uniform"){
+          return(runif(k, prev - beta_prev, prev + beta_prev))
+        }else{
+          return(rep(prev,k))
+        }
+      }
   }
   
   if (is.null(p)){
     p = compute_p_tauprev_var(N, prev, tau, alpha=alpha, alpha_prev = alpha_prev,
-                              B=B, mode=mode)
+                              B=B, mode=mode, mode_prev = mode_prev)
   }
   
   probs <- factor(sapply(1:B, function(b){ 

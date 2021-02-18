@@ -16,7 +16,8 @@ compute_probas <- function(N, prev, tau){
 }
 
 compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
-                                            B=10000, mode="none"){
+                                            B=10000, mode ="none",
+                                       mode_prev="none"){
   #### Compute p with variable tau  and prev (assumes whole group is tested)
   #### when both prev and tau are vectors
   #### INPUT
@@ -27,24 +28,37 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   #### alpha   : parameter of the variability of transmissibility within the group  (matrix N xN)
   #### mode    : generating mechanism for taus
   #### -------------------------------------------------------------------------
-  if(mode == "multiplicative"){
-    taus <- function(k){1/(1+ exp(-rnorm(k, log(tau/(1-tau)), sd = log(alpha)/2)))}
-    prevs  <- function(k){1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))}
+  taus  <- function(k){
+    beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
+    if(mode == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+    }else{
+      if(mode == "uniform"){
+        return(runif(k, tau - beta, tau + beta ))
+      }
+      else{
+        return(rep(tau,k))
+      }
+    }
   }
-  if (mode == "uniform"){
-    beta = ifelse(alpha>tau, tau,  ifelse(alpha>1-tau, 1-tau, alpha) )
-    taus  <- function(k){runif(k, tau-beta, tau+beta)}
+  prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
-    prevs  <- function(k){runif(k, prev-beta_prev, prev + beta_prev)}
-  }else{
-    taus  <- function(k){rep(tau,k)}
-    prevs  <- function(k){rep(prev,k)}
+    if(mode_prev == "multiplicative"){
+      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+    }else{
+      if(mode_prev == "uniform"){
+        return(runif(k, prev - beta_prev, prev + beta_prev))
+      }else{
+        return(rep(prev,k))
+      }
+    }
   }
+
   
   pi_eff = compute_p_tauprev_var(N, prev, tau, alpha, alpha_prev,
-                                 B=10000, mode=mode)
-  rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev,
-                                 B=10000, mode=mode)
+                                 B=10000, mode=mode, mode_prev = mode_prev)
+  rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev, p = pi_eff,
+                                 B=10000, mode=mode, mode_prev = mode_prev)
   probs <- factor(sapply(1:B, function(b){ 
     sum(sapply(prevs(N), function(x){rbinom(1,1,x)}))}), levels= 0:(N))
   probs = as.data.frame(table(probs))
@@ -61,7 +75,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
           probs$Freq[k+1] * choose(N-k, K-k)  * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
       }
     }
-    if (abs(sum(res) -1) > 10/B){
+    if (abs(sum(res) -1) > 0.01){
       return("Error computation for the probability")
     }else{
     res = res/sum(res)  #### (numerical imprecision up to order B due to the approximation of B)
