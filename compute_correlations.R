@@ -51,7 +51,7 @@ compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000,
   taus  <- function(k){
     beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
     if(mode == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+      return(1/(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2))))
     }else{
       if(mode == "uniform"){
         return(runif(k, tau - beta, tau + beta ))
@@ -64,7 +64,7 @@ compute_p_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0, B=10000,
   prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
     if(mode_prev == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+      return(1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2))))
     }else{
       if(mode_prev == "uniform"){
         return(runif(k, prev - beta_prev, prev + beta_prev))
@@ -140,7 +140,7 @@ compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
   taus  <- function(k){
     beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
     if(mode == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+      return(1/(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2))))
     }else{
       if(mode == "uniform"){
         return(runif(k, tau - beta, tau + beta ))
@@ -153,7 +153,7 @@ compute_corr_tauprev_var <- function(N, prev, tau, alpha, alpha_prev, p = NULL,
   prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
     if(mode_prev == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+      return(1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2))))
       }else{
         if(mode_prev == "uniform"){
           return(runif(k, prev - beta_prev, prev + beta_prev))

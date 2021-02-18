@@ -1,4 +1,5 @@
-source("/scratch/users/cdonnat/Group_testing/Group-testing/compute_correlations.R")
+#setwd("/scratch/users/cdonnat/Group_testing/Group-testing/")
+source("compute_correlations.R")
 library(data.table)
 
 
@@ -31,7 +32,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   taus  <- function(k){
     beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
     if(mode == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)))
+      return(1/(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2))))
     }else{
       if(mode == "uniform"){
         return(runif(k, tau - beta, tau + beta ))
@@ -44,7 +45,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   prevs  <- function(k){
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
     if(mode_prev == "multiplicative"){
-      return(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2)))
+      return(1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2))))
     }else{
       if(mode_prev == "uniform"){
         return(runif(k, prev - beta_prev, prev + beta_prev))
@@ -59,6 +60,8 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
                                  B=10000, mode=mode, mode_prev = mode_prev)
   rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev, p = pi_eff,
                                  B=10000, mode=mode, mode_prev = mode_prev)
+  pi = mean(prevs(B))
+  pi_tau = mean(taus(B))
   probs <- factor(sapply(1:B, function(b){ 
     sum(sapply(prevs(N), function(x){rbinom(1,1,x)}))}), levels= 0:(N))
   probs = as.data.frame(table(probs))
@@ -68,25 +71,29 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   simulations<- rbindlist(lapply(1:B, function(b){
     res = rep(0, N+1)
     res[1] =  probs$Freq[1]
-    res[2] = probs$Freq[2] * exp( sum(log(1-taus((N-1)))))
+    res[2] =  probs$Freq[2] * exp( sum(log(1-taus((N-1)))))
     for (K in 2:N){
       for (k in 1:K){
         res[K+1] = res[K+1]  + 
-          probs$Freq[k+1] * choose(N-k, K-k)  * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
+          probs$Freq[k+1] * choose(N-k, K-k) * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
       }
     }
-    if (abs(sum(res) -1) > 0.01){
-      return("Error computation for the probability")
-    }else{
-    res = res/sum(res)  #### (numerical imprecision up to order B due to the approximation of B)
-    }
+    #if (abs(sum(res) -1) > 0.05){
+    #  print(paste0("Error computation for the probability", abs(sum(res))))
+    #}else{
+    res = res/sum(res)  #### (numerical imprecision up to the fact that we are drawing samples tau(i))
+    #}
     
     res_temp = data.frame(n = 0:N,
                           p = res,
+                          pi = pi,
+                          tau = pi_tau,
                           rho=rho,
                           pi_eff = pi_eff,
                           n_eff= N/(1+(N-1) *rho),
-                          prob_null_eff = sapply(0:N, function(positives){dbinom(positives, N, pi_eff )}))
+                          N_eff = (0:N)/(1+(N-1) *rho),
+                          k_eff = round((0:N)/(1+(N-1) *rho)),
+                          prob_null_eff = sapply(0:N, function(positives){dbinom(round(positives/(1+(N-1) *rho)), ceiling(N/(1+(N-1) *rho)), pi_eff )}))
     
   }))
   return(simulations %>% group_by(n) %>% summarize_all(mean))

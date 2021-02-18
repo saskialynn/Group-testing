@@ -1,19 +1,21 @@
 library(tidyverse)
 library(ggplot2)
-library(fitdistrplus, lib.loc="~/R_libs")
-library(DescTools, lib.loc="~/R_libs")
-library(data.table, lib.loc="~/R_libs")
+# library(fitdistrplus, lib.loc="~/R_libs")
+# library(DescTools, lib.loc="~/R_libs")
+# library(data.table, lib.loc="~/R_libs")
 library(dplyr)
 set.seed(42)
 
-n<-10000
-#source("compute_probas.R") 
+n<-5000
+#source("/scratch/users/cdonnat/Group_testing/experiments/compute_probas.R") 
 pool.max = 100
 args = commandArgs(trailingOnly=TRUE)
 prevalence = as.numeric(args[1])
 tau = as.numeric(args[2])
 p = as.numeric(args[3])
-filename = args[4]
+mode = args[4]
+mode_prev = args[5]
+filename = args[6]
 x<-50000
 
 # probit data input
@@ -33,51 +35,6 @@ tests <- data.table::fread("alltests_1mar24jun_v1.csv")
 # Keep only valid positive ct values for first tests
 tests %>% filter(result == "positive", firsttest==TRUE,!is.na(cttarget)) %>% pull(cttarget) -> cts
 
-compute_probas_level2_variation <- function(N, prev, tau, tau_relative_var, B=10000){
-  simulations<- rbindlist(lapply(1:B, function(b){
-  tilde_tau = rnorm(N, log(tau/(1-tau)), sd=log(tau_relative_var)/2)
-  tilde_tau  = 1/(1+exp(- tilde_tau))
-  pi_eff = compute_p_level2(N,prev,tilde_tau)
-  rho = compute_corr_level2(N,prev,tilde_tau)
-  res = rep(0, N+1)
-  res[1] = (1-prev)^N
-  for (K in 1:N){
-    for (k in 1:K){
-      res[K+1] = res[K+1]  + choose(N,k) * prev^k *(1-prev)^(N-k) * choose(N-k, K-k) * exp((N-K) *sum(log(1-tilde_tau[1:k]))) * (1-exp(sum(log(1-tilde_tau[1:k]))))^(K-k)
-    }
-  }
-  res_temp = data.frame(n = 0:N,
-                        p = res,
-                        pi_eff = pi_eff,
-                        n_eff= N/(1+(N-1) *rho),
-                        prob_null_eff = sapply(0:N, function(positives){dbinom(positives, N, pi_eff )}))
-  
-  }))
-  return(simulations %>% group_by(n) %>% summarize_all(mean))
-}
-
-
-compute_p_level2 <- function(N, prev, tau){
-   A = 0
-   for (k in 1:(N-1)){
-     A = A+ choose(N-1,k) * prev^k*(1-prev)^(N-1-k)* (1-exp(sum(log(1-tau[1:k]))))
-  #   #print(A)
-   }
-  return(prev + (1-prev)*A)
-}
-
-compute_corr_level2 <- function(N, prev, tau){
-  p = compute_p_level2(N, prev, tau)
-  A = 0
-  B = 0
-  for (k in 0:(N-2)){
-    A = A+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[k+1]))))
-    if (k>0){
-      B = B+ choose(N-2,k) * prev^k*(1-prev)^(N-2-k)* (1-exp(sum(log(1-tau[2:(k+1)]))))^2
-    }
-  }
-  return((prev^2 + 2 * prev * (1-prev) *A+ (1-prev)^2 * B - p^2)/(p*(1-p)))
-}
 
 # Fit distributions
 fw <- fitdist(cts, "weibull")
@@ -136,9 +93,11 @@ experiment_loop <- function(above, ct_dat, p, prevalence, tau){
   threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement # prevalence ("proportion positive tests")
   
   A = rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) {
-print(tau_relative_var) 
+ print(tau_relative_var) 
 
- sim_probs <- compute_probas_level2_variation(p, prevalence, tau, tau_relative_var)
+ sim_probs <- compute_probas_tauprev_var(N, prev, tau, alpha=tau_relative_var, alpha_prev=0,
+                                                     B=50000, mode =mode,
+                                                     mode_prev=mode_prev)
   rbindlist(lapply(0:p, function(positives) { # number of positives
 #    print(positives)
           if (positives == 0) {
@@ -146,14 +105,22 @@ print(tau_relative_var)
             data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
                        above.llod = above.lod[above], 
                        concentration=0, 
+                       mode = mode,
+                       mode_prev =mode_prev,
                        tau = tau,
+                       taus_tilde = sim_probs$tau[1],
                        tau_relative_var = tau_relative_var,
-                       n_eff = unique(sim_probs$n_eff),
-                       probability = as.numeric(sim_probs[which(sim_probs$n == 0), "p"]),
+                       n_eff = sim_probs$n_eff[1],
+                       N_eff = sim_probs$N_eff[1],
+                       k_eff = sim_probs$k_eff[1],
+                       probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
                        #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-                       probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
-                       prevalence_corr = sim_probs$pi_eff[1],
-                       probability_null =  sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
+                       probability_null_test = dbinom(positives, p , prevalence), # uncorrected prevalence
+                       probability_corr = dbinom(sim_probs$k_eff[1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
+                       prevalence_corr = sim_probs$p[1],
+                       pi = sim_probs$pi[1],
+                       tau = sim_probs$tau[1],
+                       probability_null = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
                        random=0, 
                        z.index=0,
                        call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
@@ -168,17 +135,25 @@ print(tau_relative_var)
             # calculation dilution based on number of positives (colSum) in total pool size (p)
             z.index= probit.z.indices[probit.mode.index]
             
-            t = data.frame(
+            tt = data.frame(
               limit=lod, pool=p, pos=positives, prevalence=prevalence, 
               above.llod = above.lod[above], 
               concentration=0, 
+              mode = mode,
+              mode_prev =mode_prev,
               tau = tau,
+              taus_tilde = sim_probs$tau[1],
               tau_relative_var = tau_relative_var,
-              n_eff = sim_probs$n_eff[1],
+              n_eff = sim_probs$n_eff[positives + 1],
+              N_eff = sim_probs$N_eff[positives + 1],
+              k_eff = sim_probs$k_eff[positives + 1],
               probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
               #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-              probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
-              prevalence_corr = sim_probs$pi_eff[1],
+              probability_null = dbinom(positives,p , prevalence), # uncorrected prevalence
+              probability_corr = dbinom(sim_probs$k_eff[positives + 1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
+              prevalence_corr = sim_probs$p[1],
+              pi = sim_probs$pi[1],
+              tau = sim_probs$tau[1],
               probability_null = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
               random=sample(n,n,replace = TRUE)/n, #
               z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
@@ -190,7 +165,7 @@ print(tau_relative_var)
                 tp=1 * (call.each.conc),
                 fn=1 * (!call.each.conc),
                 fp=0)
-            return(t)
+            return(tt)
           }
         }))
   }))
@@ -199,20 +174,28 @@ print(tau_relative_var)
 
 allfirst.poolct <- experiment_loop(3, ct_fake_input, p, prevalence, tau) # just for 15% Ct > LoD 
 
-group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var) %>% 
+modegroup_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var, mode, mode_prev) %>% 
   summarize(pos1=weighted.mean(pos, w=probability),
             n_eff = mean(n_eff),
             prevalence_corr = mean(prevalence_corr),
+            pos_corr=weighted.mean(pos, w=probability_corr),
             pos_null=weighted.mean(pos, w=probability_null),
             total.tests=weighted.mean(tests, w=probability), 
+            total.tests_corr=weighted.mean(tests, w=probability_corr), 
             total.tests_null=weighted.mean(tests, w=probability_null), 
             tests.per.sample=weighted.mean(tests, w=probability)/mean(pool), # calculate tests per sample
+            tests.per.sample_corr=weighted.mean(tests, w=probability_corr)/mean(pool),
             tests.per.sample_null=weighted.mean(tests, w=probability_null)/mean(pool),
             tn1=weighted.mean(tn, w=probability), 
             tp1=weighted.mean(tp, w=probability), 
             fn1=weighted.mean(fn, w=probability), 
             fp1=weighted.mean(fp, w=probability),
             ppa = weighted.mean(tp/(fn + tp), w=probability, na.rm = TRUE),
+            ppa_corr = weighted.mean(tp/(fn + tp), w=probability_null, na.rm = TRUE),
+            tn_corr=weighted.mean(tn, w=probability_corr), 
+            tp_corr=weighted.mean(tp, w=probability_corr), 
+            fn_corr=weighted.mean(fn, w=probability_corr), 
+            fp_corr=weighted.mean(fp, w=probability_corr),
             ppa_null = weighted.mean(tp/(fn + tp), w=probability_null, na.rm = TRUE),
             tn_null=weighted.mean(tn, w=probability_null), 
             tp_null=weighted.mean(tp, w=probability_null), 

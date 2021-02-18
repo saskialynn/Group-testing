@@ -1,7 +1,7 @@
 a = 0 
 N=15
 
-compute_p_all_levels <- function(N, prevs, tau,alpha = 0.1, var_tau=2, B=100000){
+compute_p_all_levels <- function(N, prevs, tau,var_tau=2, B=100000){
   #### when both prev and tau are vectors
   probs <- factor(apply(sapply(prevs, function(x){rbinom(B,1,x)}),1,
                         function(x){sum(x[-sample(1:N,1)])}), levels= 0:(N-1))
@@ -25,13 +25,12 @@ prev  = 0.01
 a=0
 for (prev in c(0.001, 0.01, 0.1, 0.2)){
 for (tau in c( 0, 0.0001, 0.001,0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9) ){
-  for (var_tau in seq(from=1, to=6, by=0.25) ){
+  for (var_tau in seq(from=1, to=6, by=0.5) ){
     print(c(prev,tau))
     start_time <- Sys.time()
-    for (it in 1:300){
-      
-      res =rbind(lapply(1:B, function(it)
-        {data.frame(p = compute_p_all_levels(N, runif(N, prev*0.5 ,prev*1.5), tau, alpha = 0.1, var_tau=var_tau, B=1000),
+    res =rbind(lapply(1:300, function(it)
+        {data.frame(p = compute_p_all_levels(N, runif(N, prev*0.5 ,prev*1.5), tau, 
+                                             var_tau=var_tau, B=1000),
                       prev = prev,
                       tau=tau,
                       var = var_tau,
@@ -42,12 +41,13 @@ for (tau in c( 0, 0.0001, 0.001,0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.
         res_tot = rbind(res_tot, res)
       }
       a  = a+1
+      end_time <- Sys.time()
+      print(end_time - start_time)
     }
-    end_time <- Sys.time()
-    print(end_time - start_time)
+    
   }
 }
-}
+
 library(tidyverse)
 library(ggplot2)
 summary  = res_tot %>%
