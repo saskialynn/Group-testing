@@ -1,4 +1,4 @@
-#setwd("/scratch/users/cdonnat/Group_testing/Group-testing/")
+setwd("~/Dropbox/Group-testing/")
 source("compute_correlations.R")
 library(data.table)
 
@@ -30,6 +30,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   #### mode    : generating mechanism for taus
   #### -------------------------------------------------------------------------
   taus  <- function(k){
+    #### Generate variable probabilities of transmission within the household
     beta = ifelse(alpha > tau, tau,  ifelse(alpha >1-tau, 1-tau, alpha) )
     if(mode == "multiplicative"){
       return(1/(1+ exp(-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2))))
@@ -43,6 +44,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
     }
   }
   prevs  <- function(k){
+    #### Generate variable prevalences (there is a little bit of variability in the risk of being exposed)
     beta_prev = ifelse(alpha_prev > prev, prev,  ifelse(alpha_prev >1-prev, 1-prev, alpha_prev) )
     if(mode_prev == "multiplicative"){
       return(1/(1+ exp(-rnorm(k, log(prev /(1-prev)), sd = log(alpha_prev)/2))))
@@ -58,6 +60,7 @@ compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
   
   pi_eff = compute_p_tauprev_var(N, prev, tau, alpha, alpha_prev,
                                  B=10000, mode=mode, mode_prev = mode_prev)
+  ### Computes the pi_eff and correlation in these scenarios
   rho = compute_corr_tauprev_var(N, prev, tau, alpha, alpha_prev, p = pi_eff,
                                  B=10000, mode=mode, mode_prev = mode_prev)
   pi = mean(prevs(B))
