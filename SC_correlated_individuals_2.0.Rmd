@@ -242,7 +242,7 @@ test[which(test$n == 1)]
 ```{r}
 # apply the model loop to the fake correlated data
 #allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, sim_min = 0.1, sim_max = 0.2, ct_dat = ct_fake_input))
-allfirst.poolct <- rbindlist(lapply(3, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
+allfirst.poolct <- rbindlist(lapply(1:2, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
 
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>% 
   summarize(pos1=weighted.mean(pos, w=probability),
@@ -523,6 +523,7 @@ allci <- bind_cols(all,cpi)
 ```
 
 ```{r}
+allci <- read.csv("correlated_exactprobs_tauhet_Ct15.csv")
 ppa_plot <- ggplot() +
   geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
   geom_line(allci, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
@@ -554,12 +555,12 @@ tests_plot <- ggplot() +
 #dev.off()
 
 library(ggpubr)
-#pdf("plot.ppa.eff.corr.ct15.pdf",width=8, height=5)  
+pdf("plot.ppa.eff.corr.tauhet.ct15.pdf",width=8, height=5)  
 ggarrange(ppa_plot, tests_plot, 
           labels = c("A", "B"), 
           ncol=1, nrow = 2, 
           common.legend = TRUE, legend = "right")
-#dev.off()
+dev.off()
 ```
 
 ```{r}
