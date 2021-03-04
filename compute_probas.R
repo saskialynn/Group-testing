@@ -1,5 +1,5 @@
 
-setwd("~/Dropbox/Group-testing/")
+# setwd("~/Dropbox/Group-testing/")
 
 source("compute_correlations.R")
 library(data.table)

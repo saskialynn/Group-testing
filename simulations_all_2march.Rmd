@@ -15,7 +15,8 @@ set.seed(42)
 ```{r}
 n<-5000
 source("compute_probas.R") 
-x<-50000
+# x<-50000
+x <- 5000
 ```
 
 
@@ -84,20 +85,17 @@ for(j in 1:length(above.lod)){
 
 ```{r}
 # args = commandArgs(trailingOnly=TRUE)
-pool.max = 20
+pool.max = 10
 prev_input = c(0.001,0.01, 0.03, 0.05,0.1)
 tau_input = c(0.1, 0.2, 0.3, 0.4)
-pool_input = seq(1, pool.max, by = 1)
-mode = "uniform" # generating mechanism for taus
+pool_input = seq(3, pool.max, by = 1)
+mode = "multiplicative" # generating mechanism for taus
 mode_prev = "uniform" # generating mechanism for prevalence
 # filename = args[6]
 ```
 
-```{r}
-above <- 3
-ct_dat <- ct_fake_input
-pool_input, prev_input, tau_input
 
+```{r}
 experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
   ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
   # (1) generate additional set of C_t values with above = 5-30% of values above each LoD; subset to only valid Ct values (<45)
@@ -108,26 +106,21 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
     rbindlist(lapply(prevalences, function(prev) { # prevalences
       rbindlist(lapply(taus, function(tau) { # taus
         rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) { # alpha value
+          # 1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10
           # print(c(pool.size, prev, tau, tau_relative_var, mode, mode_prev)) 
-          
-          prev <- prev_input[1]
-          pool.size <- pool_input[1]
-          tau <- tau_input[1]
-          tau_relative_var <- 1
           sim_probs <- compute_probas_tauprev_var(pool.size, prev, tau, alpha=tau_relative_var, alpha_prev=0.05,
-                                                  B=50000, mode =mode,
+                                                  B=5000, mode =mode,
                                                   mode_prev=mode_prev)
           rbindlist(lapply(0:pool.size, function(positives) { # number of positives
             #    print(positives)
             if (positives == 0) {
               # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
-              data.frame(limit=lod, pool=pool.size, pos=positives, prevalence=prevalence, 
+              data.frame(limit=lod, pool=pool.size, pos=positives, prevalence=prev, 
                          above.llod = above.lod[above], 
                          concentration=0, 
                          mode = mode,
                          mode_prev =mode_prev,
                          tau = tau,
-                         prevalence = prev,
                          taus_tilde = sim_probs$tau[1],
                          tau_relative_var = tau_relative_var,
                          n_eff = sim_probs$n_eff[1],
@@ -135,7 +128,7 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
                          k_eff = sim_probs$k_eff[1],
                          probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
                          #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-                         probability_null = dbinom(positives, pool.size , prevalence), # uncorrected prevalence
+                         probability_null = dbinom(positives, pool.size , prev), # uncorrected prevalence
                          probability_corr = dbinom(sim_probs$k_eff[1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
                          prevalence_corr = sim_probs$p[1],
                          pi = sim_probs$pi[1],
@@ -156,13 +149,12 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
               z.index= probit.z.indices[probit.mode.index]
               
               tt = data.frame(
-                limit=lod, pool=pool.size, pos=positives, prevalence=prevalence, 
+                limit=lod, pool=pool.size, pos=positives, prevalence=prev, 
                 above.llod = above.lod[above], 
                 concentration=0, 
                 mode = mode,
                 mode_prev =mode_prev,
                 tau = tau,
-                prevalence = prev,
                 taus_tilde = sim_probs$tau[1],
                 tau_relative_var = tau_relative_var,
                 n_eff = sim_probs$n_eff[positives + 1],
@@ -170,7 +162,7 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
                 k_eff = sim_probs$k_eff[positives + 1],
                 probability = as.numeric(sim_probs[which(sim_probs$n == positives), "p"]),
                 #probability_subset1 =  sim_subset_probs[which(sim_subset_probs$n == 0), "p"],
-                probability_null = dbinom(positives,pool.size , prevalence), # uncorrected prevalence
+                probability_null = dbinom(positives,pool.size , prev), # uncorrected prevalence
                 probability_corr = dbinom(sim_probs$k_eff[positives + 1],ceiling(sim_probs$n_eff[1]), sim_probs$pi_eff[1]),
                 prevalence_corr = sim_probs$p[1],
                 pi = sim_probs$pi[1],
@@ -198,6 +190,8 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
 
 ```
 
+
+
 ```{r}
 k <- (pool.size - 2)*1
 alpha <- tau_relative_var
@@ -212,8 +206,10 @@ rnorm(-1, -2.19, 0)
 
 
 ```{r}
-allfirst.poolct <- experiment_loop(3, ct_fake_input, pool_input, prev_input, tau_input) # just for 15% Ct > LoD 
+# allfirst.poolct <- experiment_loop(3, ct_fake_input, pool_input, prev_input, tau_input) # just for 15% Ct > LoD 
+allfirst.poolct <- experiment_loop(3, ct_fake_input, , .1, .2)
 
+#1,000,020 obs using pool_input = c, prev_input, tau_input
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var, mode, mode_prev) %>% 
   summarize(pos1=weighted.mean(pos, w=probability),
             n_eff = mean(n_eff),
@@ -242,14 +238,18 @@ group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_
             fn_null=weighted.mean(fn, w=probability_null), 
             fp_null=weighted.mean(fp, w=probability_null)) -> apw
 
-
-write.csv(apw, file = paste0("/scratch/users/cdonnat/Group_testing/experiments/", filename, ".csv" ))
+rm(allfirst.poolct)
+write.csv(apw, "test.csv")
+# write.csv(apw, file = paste0("/scratch/users/cdonnat/Group_testing/experiments/", filename, ".csv" ))
 
 ```
 
 
 
 
+```{r}
+read.csv("test.csv")
+```
 
 
 
