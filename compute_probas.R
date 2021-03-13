@@ -3,7 +3,7 @@ setwd("~/Dropbox/Group-testing/")
 
 source("compute_correlations.R")
 library(data.table)
-
+library(tidyverse)
 
 compute_probas <- function(N, prev, tau){
   res = rep(0, N+1)
