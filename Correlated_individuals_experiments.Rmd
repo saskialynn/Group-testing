@@ -228,10 +228,6 @@ experiment_loop <- function(above, ct_dat, sim_min, sim_max){
 ```
 
 
-
-
-
-
 ```{r}
 # apply the model loop to the fake correlated data
 #allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, sim_min = 0.1, sim_max = 0.2, ct_dat = ct_fake_input))
