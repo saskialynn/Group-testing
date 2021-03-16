@@ -5,8 +5,7 @@ compute_pd <- function(N, K, prev){
 }
 
 compute_td <- function(N, K, tau){
-  sapply(1:K, function(k){choose(N-k,K-k) *(1-tau)^(k*(N-K)) * (1-(1-tau)^k)^(K-k)})
-
+  sapply(1:(K), function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
 }
 
 prev_graph_effect <- function(x, B){
@@ -25,32 +24,39 @@ proba_laws <- function(N, prev, tau,
                        prev_graph_effect=NULL,
                        prev_subject_effect=NULL,
                        B=1000){
-  
+  ##############################
+  ####  Compute proba laws (approximation) with whilst allowing for some variability
+  ####  INPUT
+  ####  --------------------------------------------
+  ####  N, prev, tau         : Size of the group, baseline prevalence and transmissibility
+  ####  tau_graph_effect     : function to sample variables taus (graph effect). NULL if no graph effect.
+  ####  tau_subject_effect   : function to sample variables taus (edge effect). NULL if no edge effect.
+  ####  prev_graph_effect    : function to sample variables prevs (graph effect). NULL if no graph effect.
+  ####  prev_subject_effect  : function to sample variables prevs (subject effect). NULL if no edge effect.
+  ####
   if (is.null(prev_graph_effect) == FALSE){
     prevs = prev_graph_effect(prev, B)
     dist_nothing <- sapply(prevs, function(prev){(1-prev)^N})
     dist_prevs = lapply(prevs, function(prev){
-      sapply(1:N, function(K){ compute_pd(N,K, prev) 
-        })})  ### N x B
+      c((1-prev)^N, sapply(1:N, function(K){ compute_pd(N,K, prev)
+        }))})  ### list (B length) of K items of length k
   }else{
-    prevs = rep(prev, B)
-    dist_nothing <- sapply(prevs, function(prev){(1-prev)^N})
-    dist_prevs = matrix(sapply(1:N, function(K){ compute_pd(N,K, prev)
-    }), ncol=1)
-    
-    #choose(N-k, K-k) * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
+    ### Let's deal with this latter
+        prevs = rep(prev, B)
+        dist_nothing <- sapply(prevs, function(prev){(1-prev)^N})
+        dist_prevs = lapply(prevs, function(prev){
+          c((1-prev)^N, sapply(1:N, function(K){ compute_pd(N,K, prev)
+          }))})   ### list (B length) of K items of length k
+        #choose(N-k, K-k) * exp( sum(log(1-taus((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(toto){log(1-exp(sum(log(1-taus(k)))))})))
   }
-
-  
-  ### Let's deal with this latter
   if (is.null(prev_subject_effect) == FALSE){
     #### the prevalence is small, so we use a Poisson approximation
     dist_prevs = sapply(prevs, function(prev){
       #### generate subject effects
       prev_s = prev_subject_effect(prev, N)
       lambda=  sum(prevs)
-      return(sapply(1:N, function(K){exp(-lambda) * lambda^K/factorial(K)}))
-  })}
+      return(sapply(0:N, function(K){exp(-lambda) * lambda^K/factorial(K)}))
+    })}
 
   
   if (is.null(tau_graph_effect) == FALSE){
@@ -60,39 +66,50 @@ proba_laws <- function(N, prev, tau,
       })})  ### N x B
   }else{
     taus = rep(tau, B)
-    dist_taus = matrix(sapply(1:N, function(K){ compute_td(N,K, tau)
-    }), ncol=1)
+    dist_taus = lapply(taus, function(tau){
+      sapply(1:N, function(K){ compute_td(N,K, tau) 
+      })})
   }
   if (is.null(tau_subject_effect) == FALSE){
-    dist_prevs = sapply(taus, function(prev){
+    taus_f <- function(b){tau_subject_effect(b, tau=tau)}
+    dist_taus = lapply(1:B, function(b){
+      sapply(1:N, function(K){
       #### generate subject effects
-      tau_s = tau_subject_effect(tau, N)
-      return(sapply(1:N, function(K){exp(-lambda) * lambda^K/factorial(K)}))
-    })}
+      sapply(1:(K), function(k){
+        taus_v = taus_f((N-K)*K) 
+        if (k<K){
+          choose(N-k, K-k) * exp( sum(log(1-taus_f((N-K)*k)))) * exp(sum(sapply(1:(K-k),
+                                                                              function(j){log(1-exp(sum(log(1-taus_f(k)))))})))  
+        }else{
+          exp( sum(log(1-taus_f((N-K)*K))))
+        }
+        
+      })
+    })})
+  }
   
-  test = sapply(1:B,function(b){
-    sapply(1:N, function(k){
-      sum(dist_prevs[[b]][[k]] * dist_taus[[b]][[k]])
-    })
-  }) 
+  
+  #### Now compute the dot product
+
+    test = sapply(1:B,function(b){
+        c(dist_prevs[[b]][[1]],sapply(1:N, function(k){
+          sum(dist_prevs[[b]][[(k+1)]] * dist_taus[[b]][[k]])
+        }))
+      }) 
+  for (j in 1:ncol(test)){
+    if(sum(test[,j])!=1){
+      test[,j] = test[,j]/sum(test[,j])
+    }
+    
+  }
+  return(test)
 }
-
-
-sens = sapply(1:N, function(positives){
-  dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
-  # sample data uniformly at random 
-  # n samples of positives, rearrange into a matrix of positive rows, n columns
-  each.conc = -log2(colSums(2^-dat)/pool.size)+ifelse(dilution.vary.index==1,0,
-                                                      rnorm(mean=0,sd=1.1,n=ncol(dat)))
-  z.index= probit.z.indices[probit.mode.index]
-  mean(probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2])
-
-})
+  
 
 #### Is this legit?  ## Need to run the simulations
 
-df = data.frame(sens = t(sens)%*% test/apply(test,2,sum))
 
 
 
-(1-prev)^N + sum(sapply(1:N, function(K){sum(compute_pd(N,K, prev) * (compute_td(N,K, tau)))}))
+
+

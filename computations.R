@@ -95,6 +95,7 @@ experiment_loop <- function(above, ct_dat, pool.size, prev, tau){
   A = rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) {
  print(c(pool.size, prev, tau, tau_relative_var, mode, mode_prev)) 
 
+ 
  sim_probs <- compute_probas_tauprev_var(pool.size, prev, tau, alpha=tau_relative_var, alpha_prev=0.05,
                                                      B=50000, mode =mode,
                                                      mode_prev=mode_prev)
@@ -127,6 +128,8 @@ experiment_loop <- function(above, ct_dat, pool.size, prev, tau){
                        call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
           } 
           else {
+            
+  
             dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
             # sample data uniformly at random 
             # n samples of positives, rearrange into a matrix of positive rows, n columns
@@ -157,11 +160,11 @@ experiment_loop <- function(above, ct_dat, pool.size, prev, tau){
               pi = sim_probs$pi[1],
               tau = sim_probs$tau[1],
               probability_null = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
-              random=sample(n,n,replace = TRUE)/n, #
+              #random=sample(n,n,replace = TRUE)/n, #
               z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                              sample(1:length(z_scores),n,replace=T))) %>%
               mutate(
-                call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
+                call.each.conc=mean(probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]),
                 tests=1 + pool * (call.each.conc), # number of tests done (number positive pools + pool size)
                 tn=0,
                 tp=1 * (call.each.conc),
