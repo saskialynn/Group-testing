@@ -106,6 +106,89 @@ proba_laws <- function(N, prev, tau,
 }
   
 
+pool.size = n
+B=1000
+sens = sapply(1:N, function(positives){
+  dat <- matrix(sample(threshold.ct, positives * B, replace=T), nrow=positives) 
+  # sample data uniformly at random 
+  # n samples of positives, rearrange into a matrix of positive rows, n columns
+  each.conc = -log2(colSums(2^-dat)/pool.size)+ifelse(dilution.vary.index==1,0,
+                                                      rnorm(mean=0,sd=1.1,n=ncol(dat)))
+  z.index= probit.z.indices[probit.mode.index]
+  return(mean(probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]))
+
+})
+
+
+prev_graph_effect <- function(x, B){
+  a = rnorm(B, log(x/(1-x)), 3)
+  return((1/(1+exp(-a))))
+}
+
+tau_graph_effect <- function(x, B){
+  return(runif(B, 0.5 *tau, 1.5 * tau ))
+}
+
+it =1
+for (prev in c(0.001, 0.001, 0.005, 0.01, 0.02, 
+               0.03, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.2, 0.25, 0.3)){
+  for(tau in seq(from=0.00, to=0.7, by=0.005)){
+    print(c(prev,tau))
+    a = list(proba_laws(N, prev, tau, 
+                   tau_graph_effect=NULL,
+                   tau_subject_effect=NULL, 
+                   prev_graph_effect=NULL,
+                   prev_subject_effect=NULL,
+                   B=1000),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=tau_graph_effect,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=NULL,
+                        prev_subject_effect=NULL,
+                        B=1000),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=NULL,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=prev_graph_effect,
+                        prev_subject_effect=NULL,
+                        B=1000),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=tau_graph_effect,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=prev_graph_effect,
+                        prev_subject_effect=NULL,
+                        B=1000)
+             )
+    names = c("Fixed", "Tau Graph Effect","Pi Graph Effect","All Graph Effect")
+    for (n in 1:4){
+      if (it ==1){
+        res = data.frame(x = sapply(1:B, function(b){
+          sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}),
+          type = names[n])
+      }else{
+        res = rbind(res,
+                    data.frame(x = sapply(1:B, function(b){
+          sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}),
+          type = names[n]))
+      }
+      it = it + 1
+      
+    }
+    
+  }
+  
+}
+
+ggplot(res)
+
+
+test = sapply(1:B, function(b){
+ sum(a[, b] * c(0,sens))
+})
+
+test = sapply(1:B, function(b){
+  sum(a[2:(N+1), b] * sens)/sum(a[2:(N+1), b])
+})
 #### Is this legit?  ## Need to run the simulations
 
 

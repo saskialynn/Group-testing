@@ -8,6 +8,7 @@ set.seed(42)
 
 n<-5000
 source("/scratch/users/cdonnat/Group_testing/Group-testing/compute_probas.R") 
+source("/scratch/users/cdonnat/Group_testing/Group-testing/compute_proba_laws.R")
 pool.max = 100
 args = commandArgs(trailingOnly=TRUE)
 prevalence = as.numeric(args[1])
