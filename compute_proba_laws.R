@@ -179,7 +179,11 @@ for (prev in c(0.001, 0.001, 0.005, 0.01, 0.02,
   
 }
 
-ggplot(res)
+
+res$
+ggplot(res) +
+  
+  
 
 
 test = sapply(1:B, function(b){
