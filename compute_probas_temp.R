@@ -21,7 +21,8 @@ compute_probas <- function(N, prev, tau){
 compute_probas_tauprev_var <- function(N, prev, tau, alpha=0, alpha_prev=0,
                                             B=10000, mode ="none",
                                        mode_prev="none"){
-
+# multiplicative: mean value p/1-p is multiplied by alpha
+# alpha is how much it varies around the mean
   N <- pool_input[1]
   prev <- prev_input[1]
   tau <- tau_input[1]

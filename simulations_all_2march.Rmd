@@ -85,12 +85,13 @@ for(j in 1:length(above.lod)){
 
 ```{r}
 # args = commandArgs(trailingOnly=TRUE)
-pool.max = 10
-prev_input = c(0.001,0.01, 0.03, 0.05,0.1)
-tau_input = c(0.1, 0.2, 0.3, 0.4)
+pool.max = 5
+# prev_input = c(0.001,0.01, 0.05,0.1)
+prev_input = c(0.001,0.1)
+tau_input = c(0, .1, .2, .3, .4, .5)
 pool_input = seq(3, pool.max, by = 1)
-mode = "multiplicative" # generating mechanism for taus
-mode_prev = "uniform" # generating mechanism for prevalence
+mode = "none" # generating mechanism for taus
+mode_prev = "none" # generating mechanism for prevalence
 # filename = args[6]
 ```
 
@@ -105,7 +106,7 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
   A = rbindlist(lapply(pools, function (pool.size) { # pool size
     rbindlist(lapply(prevalences, function(prev) { # prevalences
       rbindlist(lapply(taus, function(tau) { # taus
-        rbindlist(lapply(c(1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10), function(tau_relative_var) { # alpha value
+        rbindlist(lapply(c(1), function(tau_relative_var) { # alpha value
           # 1, 1.1, 1.2, 1.5, 2, 2.5, 3,4,5,6,7,10
           # print(c(pool.size, prev, tau, tau_relative_var, mode, mode_prev)) 
           sim_probs <- compute_probas_tauprev_var(pool.size, prev, tau, alpha=tau_relative_var, alpha_prev=0.05,
@@ -133,8 +134,8 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
                          prevalence_corr = sim_probs$p[1],
                          pi = sim_probs$pi[1],
                          tau = sim_probs$tau[1],
-                         probability_null = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
-                         random=0, 
+                         probability_null_correct = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
+                         # random=0, 
                          z.index=0,
                          call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
             } 
@@ -167,16 +168,17 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
                 prevalence_corr = sim_probs$p[1],
                 pi = sim_probs$pi[1],
                 tau = sim_probs$tau[1],
-                probability_null = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
-                random=sample(n,n,replace = TRUE)/n, #
+                probability_null_correct = sim_probs$prob_null_eff[positives+1], # prevalence corrected for correlated individuals
+                # random=sample(n,n,replace = TRUE)/n, #
                 z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
                                sample(1:length(z_scores),n,replace=T))) %>%
                 mutate(
-                  call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
+                  # call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
+                  call.each.conc = mean(probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]),
                   tests=1 + pool * (call.each.conc), # number of tests done (number positive pools + pool size)
                   tn=0,
                   tp=1 * (call.each.conc),
-                  fn=1 * (!call.each.conc),
+                  fn=1 - call.each.conc,
                   fp=0)
               return(tt)
             }
@@ -192,22 +194,12 @@ experiment_loop <- function(above, ct_dat, pools, prevalences, taus){
 
 
 
-```{r}
-k <- (pool.size - 2)*1
-alpha <- tau_relative_var
-typeof(k)
-typeof(alpha)
-rnorm(k, log(tau /(1-tau)), sd = log(alpha)/2)
-rnorm(-1, -2.19, 0)
-```
-
-
 
 
 
 ```{r}
 # allfirst.poolct <- experiment_loop(3, ct_fake_input, pool_input, prev_input, tau_input) # just for 15% Ct > LoD 
-allfirst.poolct <- experiment_loop(3, ct_fake_input, , .1, .2)
+allfirst.poolct <- experiment_loop(3, ct_fake_input, c(4, 18), prev_input, tau_input)
 
 #1,000,020 obs using pool_input = c, prev_input, tau_input
 group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_var, mode, mode_prev) %>% 
@@ -239,16 +231,128 @@ group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau,tau_relative_
             fp_null=weighted.mean(fp, w=probability_null)) -> apw
 
 rm(allfirst.poolct)
-write.csv(apw, "test.csv")
+write.csv(apw, "sim_21_25.csv")
 # write.csv(apw, file = paste0("/scratch/users/cdonnat/Group_testing/experiments/", filename, ".csv" ))
 
 ```
 
 
+```{r}
+allci <- apw
+summary_table <- allci %>%
+  mutate(ppa_diff=ppa - ppa_null, 
+         test_diff=tests.per.sample - tests.per.sample_null, 
+         ppa_pct_increase = ((ppa-ppa_null)/ppa_null)*100, 
+         test_pct_decrease = ((tests.per.sample - tests.per.sample_null)/tests.per.sample_null)*100) %>%
+  dplyr::select(pool, prevalence, tau, 
+                ppa_null, ppa_pct_increase,
+                tests.per.sample_null, test_pct_decrease,
+                ppa_diff, test_diff, n_eff)
+
+summary_table2 <- allci %>%
+  mutate(ppa_diff=ppa - ppa_null, 
+         test_diff=tests.per.sample - tests.per.sample_null, 
+         ppa_pct_increase = ((ppa-ppa_null)/ppa_null)*100, 
+         test_pct_decrease = ((tests.per.sample - tests.per.sample_null)/tests.per.sample_null)*100) %>%
+  dplyr::select(pool, prevalence, tau,  n_eff)
+```
+
 
 
 ```{r}
-read.csv("test.csv")
+pdf("n_eff_vs_tau_p10.pdf",width=8, height=5) 
+ggplot() +
+  geom_line(apw, mapping = aes(x=tau, y= n_eff, color=as.factor(prevalence))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Tau") + 
+  ylab("Effective Pool Size") +
+  ggtitle("Effectve Pool Size vs. Tau for Pool Size = 10") +
+  #scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Prevalence")) 
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+sim_3_5 <- read.csv("sim_3_5.csv")
+sim_6_10 <- read.csv("sim_6_10.csv")
+sim_11_15 <- read.csv("sim_11_15.csv")
+sim_16_20 <- read.csv("sim_16_20.csv")
+sim_21_25 <- read.csv("sim_21_25.csv")
+
+
+sim_all <- rbind(sim_3_5, sim_6_10, sim_11_15, sim_16_20, sim_21_25)
+
+
+```
+
+
+```{r}
+ppa_plot <- ggplot() +
+  geom_line(sim_all, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
+  geom_line(sim_all, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
+  
+  facet_grid(cols = vars(factor(sim_all$tau, labels = c("Tau = 0.15", "0.3", "0.45")))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  # xlab("Pool size") + 
+  ylab("Expected PPA") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+#pdf("plot.eff.corrindiv.4.6.pdf",width=8, height=5)  
+tests_plot <- ggplot() +
+  geom_line(sim_all, mapping = aes(x=pool, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
+  geom_line(sim_all, mapping = aes(x=pool, y= tests.per.sample_null, color=as.factor(prevalence), linetype = "null")) +
+  facet_grid(cols = vars(factor(sim_all$tau))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+#dev.off()
+
+# tests_plot +   geom_hline(yintercept = 1)
+library(ggpubr)
+# pdf("plot.ppa.eff.corr.ct15.pdf",width=8, height=5)  
+ggarrange(ppa_plot, tests_plot, 
+          labels = c("A", "B"), 
+          ncol=1, nrow = 2, 
+          common.legend = TRUE, legend = "right")
+# dev.off()
+```
+
+```{r}
+ggplot() +
+  geom_line(sim_all, mapping = aes(x=pool, y= n_eff, color=as.factor(prevalence),linetype="correlated")) +
+  # geom_line(sim_all, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
+  facet_grid(cols = vars(factor(sim_all$tau, labels = c("Tau = 0.15", "0.3", "0.45")))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  # xlab("Pool size") + 
+  ylab("n_eff") +
+  # ggtitle("Correlated vs. IID Samples") +
+  # scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
 ```
 
 
