@@ -54,7 +54,7 @@ proba_laws <- function(N, prev, tau,
     dist_prevs = sapply(prevs, function(prev){
       #### generate subject effects
       prev_s = prev_subject_effect(prev, N)
-      lambda=  sum(prevs)
+      lambda=  sum(prev_s)
       return(sapply(0:N, function(K){exp(-lambda) * lambda^K/factorial(K)}))
     })}
 
