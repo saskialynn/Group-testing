@@ -54,7 +54,7 @@ proba_laws <- function(N, prev, tau,
     dist_prevs = sapply(prevs, function(prev){
       #### generate subject effects
       prev_s = prev_subject_effect(prev, N)
-      lambda=  sum(prevs)
+      lambda=  sum(prev_s)
       return(sapply(0:N, function(K){exp(-lambda) * lambda^K/factorial(K)}))
     })}
 
@@ -194,6 +194,10 @@ test = sapply(1:B, function(b){
   sum(a[2:(N+1), b] * sens)/sum(a[2:(N+1), b])
 })
 #### Is this legit?  ## Need to run the simulations
+
+
+
+
 
 
 

@@ -24,8 +24,8 @@ $$
 
 ```{r}
 # inputs for debugging/testing purposes
-N <- 1
-prev <- .1
+N <- 10
+prev <- .01
 tau <- .2
 B <- 1000
 ```
@@ -44,11 +44,36 @@ B <- 1000
 
 # functions to compute probability of K positives in a pool of size N
 compute_pd <- function(N, K, prev){ # community infections
-  sapply(1:K, function(k){choose(N,k) * prev^k * (1-prev)^(N-k) })
+  if (K >N){
+    print("Error: K>N")
+    return(NA)
+  }else{
+    if (K ==0){
+      return(prev^N)
+    }else{
+      sapply(1:K, function(k){choose(N,k) * prev^k * (1-prev)^(N-k) })
+    }
+    
+  }
+  
 }
 
 compute_td <- function(N, K, tau){ # network transmission
+<<<<<<< HEAD
   sapply(1:K, function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
+=======
+    if (K >N){
+    print("Error: K>N")
+    return(NA)
+  }else{
+    if (K ==0){
+      return(1)
+    }else{
+      sapply(1:(K), function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
+    }
+    
+  }
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
 }
 # functions to sample prevalence and tau from prior distributions
 prev_graph_effect <- function(x, B){
@@ -77,17 +102,22 @@ proba_laws <- function(N, prev, tau,
                        tau_subject_effect=NULL, 
                        prev_graph_effect=NULL,
                        prev_subject_effect=NULL,
-                       null_mod=NULL,
+                       null_mod=FALSE,
                        B=1000){
+<<<<<<< HEAD
   
   ## Null Model
   if(is.null(null_mod) == FALSE){
+=======
+  if(null_mod == FALSE){
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
     prevs=rep(prev, B)
     dist_prevs = lapply(prevs, function(prev){
       dbinom(0:N, N, prev)
     })
   }
   
+<<<<<<< HEAD
   ## Sample prevalence from prior
   if (is.null(prev_graph_effect) == FALSE){ 
     prevs = prev_graph_effect(prev, B) # sample prevalence B times
@@ -105,46 +135,75 @@ proba_laws <- function(N, prev, tau,
   }
   
   ## REVIEW LATER
+=======
+  
+  
+  if (is.null(prev_graph_effect) == FALSE){ # sample prevalence from prior
+    prevs = prev_graph_effect(prev, B) # sample prevalence B times
+  }else{ # point value of prev (not sampled)
+    prevs = rep(prev, B)
+  }
+  dist_nothing <- sapply(prevs, function(prev){(1-prev)^N}) # nobody infected from community
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
   if (is.null(prev_subject_effect) == FALSE){
     #### the prevalence is small, so we use a Poisson approximation to the binomial
     ## large n, small pi -> lambda = n(pi)
-    dist_prevs = sapply(prevs, function(prev){
+    dist_prevs = lapply(prevs, function(prev){
       #### generate subject effects
       prev_s = prev_subject_effect(prev, N) # sample prev
+<<<<<<< HEAD
       lambda=  sum(prev_s)
+=======
+      lambda =  sum(prev_s)
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
       return(sapply(0:N, function(K){exp(-lambda) * lambda^K/factorial(K)})) #Poisson PMF
-    })}
+    })
+    } else{
+    dist_prevs = lapply(prevs, function(prev){ # 1:K infected from comm
+      c((1-prev)^N, sapply(1:N, function(K){ compute_pd(N,K, prev)
+      }))})  ### list (B length) of N+1 items (for 0:N infected), each of length k
+    }
   
   ## Sample tau from prior
   if (is.null(tau_graph_effect) == FALSE){
     taus = tau_graph_effect(tau, B)
+<<<<<<< HEAD
     dist_taus = lapply(taus, function(tau){
       sapply(1:N, function(K){ compute_td(N,K, tau) # compute for each tau and value of N
         # MODIFIED: added c((1-tau)^N)
       })})  ### N x B
+=======
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
   }else{
     taus = rep(tau, B)
-    dist_taus = lapply(taus, function(tau){
-      sapply(1:N, function(K){ compute_td(N,K, tau) 
-      })})
   }
   
   ## REVIEW LATER
   if (is.null(tau_subject_effect) == FALSE){
-    taus_f <- function(b){tau_subject_effect(x=tau, b)}
+    taus_f <- function(b){tau_subject_effect(x=tau)}
     dist_taus = lapply(1:B, function(b){ #for B simulations
       sapply(1:N, function(K){ 
-        #### generate subject effects
         sapply(1:(K), function(k){
-          # taus_v = taus_f((N-K)*K) 
-          if (k<K){
-            choose(N-k, K-k) * exp(sum(log(1-taus_f((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(j){log(1-exp(sum(log(1-taus_f(k)))))})))  
-          }else{
-            exp(sum(log(1-taus_f((N-K)*K))))
-          }
-          
+          pp = mean(sapply(1:B, function(x){1- exp(sum(log(1-tau_subject_effect(x=tau, k))))}))
+          choose(N-k, K-k)  * pp^(K-k) * (1-pp)^(N-K)
         })
-      })})
+      })
+      # sapply(1:N, function(K){ 
+      #   #### generate subject effects
+      #   sapply(1:(K), function(k){
+      #     # taus_v = taus_f((N-K)*K) 
+      #     if (k<K){
+      #       choose(N-k, K-k) * exp(sum(log(1-taus_f((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(j){log(1-exp(sum(log(1-taus_f(k)))))})))  
+      #     }else{
+      #       exp(sum(log(1-taus_f((N-K)*K))))
+      #     }
+      #     
+      #  })})
+      })
+  }else{
+      dist_taus = lapply(taus, function(tau){
+      sapply(1:N, function(K){ compute_td(N,K, tau) # compute for each tau and value of N
+      })})  ### N x B
   }
   
   
@@ -156,12 +215,6 @@ proba_laws <- function(N, prev, tau,
   }) 
   # make sure sums to 1 (since we are approximating)
   # normalize if needed 
-  for (j in 1:ncol(test)){
-    if(sum(test[,j])!=1){
-      test[,j] = test[,j]/sum(test[,j])
-    }
-    
-  }
   return(test)
 }
 ```
