@@ -16,26 +16,35 @@ for (filename in files){
 
 res$var =  as.factor(res$var)
 
-summary  = res %>%
-  dplyr::group_by(prev,tau, var) %>%
-  dplyr::summarise(bias = mean(p), 
-            sd = sd(p), 
-            q97=quantile(p,0.975),
-            q2=quantile(p,0.025))
+library(reshape2)
+
+res2 = melt(res[, 2:ncol(res)], id.vars = c("prev", "tau", "var",  "var_mode", "it"))
+summary  = res2 %>%
+  dplyr::group_by(prev, tau, var, var_mode, variable) %>%
+  dplyr::summarise(bias = mean(value), 
+            sd = sd(value), 
+            q97=quantile(value,0.975, na.rm = TRUE),
+            q2=quantile(value,0.025, na.rm = TRUE))
+
+
+test= res2 %>% filter(variable == "p00", tau ==0.5 , prev== 0.05)
+test2= res2 %>% filter(variable == "p0", tau ==0.5 , prev== 0.05)
+
+
 summary  = res %>%
   group_by(prev,tau, var) %>%
   summarise(bias = mean(p -prev), 
             sd = sd(p -prev), 
             q97=quantile(p-prev,0.975),
-            q2=quantile(p-prev,0.025))ana
+            q2=quantile(p-prev,0.025))
 
 summary$prev <- as.factor(summary$prev)
 summary$var <- as.factor(summary$var)
 #summary$prev <- as.factor(summary$prev)
 
-ggplot(summary %>% filter( prev %in% c(0.001, 0.01, 0.02, 0.05, 0.1, 0.2)))+
-  geom_point(aes(x=tau, y=bias, colour = prev)) + 
-  geom_ribbon(aes(x=tau, ymin=q2,ymax=q97, fill=prev, colour=prev), alpha=0.4 ) +
+ggplot(summary %>% filter(variable == "p00"))+
+  geom_point(aes(x=tau, y=sd, colour = prev)) + 
+  #geom_ribbon(aes(x=tau, ymin=q2,ymax=q97, fill=prev, colour=prev), alpha=0.4 ) +
   facet_wrap(vars(var)) + 
   theme_bw()
 
