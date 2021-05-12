@@ -12,6 +12,7 @@ library(data.table)
 library(dplyr)
 library(reshape2)
 library(RColorBrewer)
+library(ggpubr) #ggarrange()
 ```
 
 
@@ -26,7 +27,8 @@ Functions for computing the probability of $K$ positives in a pool of size $N$, 
 source("prob_laws_429.R")
 ```
 
-# Load real Ct data and extract the distribution parameters
+# Data preparation for doing simulations
+## Load real Ct data and extract the distribution parameters
 ```{r}
 # Get all tests
 tests <- data.table::fread("alltests_1mar24jun_v1.csv")
@@ -81,7 +83,7 @@ for(j in 1:length(above.lod)){
 }
 ```
 
-# Include the probit  coefficients
+## Include the probit  coefficients
 The probits scores are necessary to compute the viral load. Specimens with Ct beyond (greater than) the LoD are assigned a decreasing probability of detection based on a probit regression curve. Probability of detection is derived form the probit regression model. 
 ```{r}
 # probit data input
@@ -115,6 +117,7 @@ sens_dat$pos_frac <- sens_dat$positives / sens_dat$pool.size
 
 Expected Ct based on the observed data (individual PCR testing)
 ??? Is this correct ???
+# TODO: decide what to do with this section
 ```{r}
 # cts is the observed data
 # ct_fake_input is the simulated data from Weibull distribution, using parameters from 
@@ -135,52 +138,16 @@ df <- df %>% group_by(ct_value) %>% filter(row_number() == 1)
 sum(df$probit_probability_detection * freq_ct_dat$freq)
 ```
 
-Plot Sensitivity as a function of number infected per pool
-```{r}
-# data frame of sensitivity as function of number positive per pool
-ggplot(sens_dat, aes(x=pool.size, y=mean, group=as.factor(positives))) +
-  geom_line(aes(color=as.factor(positives))) + 
-  theme(legend.position="bottom") + 
-  guides(fill=guide_legend(title="Number Positive")) + 
-  geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
-  xlab("Pool size") + ylab("Sensitivity") 
 
-ggplot(sens_dat, aes(x=pos_frac, y=mean, group=as.factor(pool.size))) +
-  geom_line(aes(color=as.factor(pool.size))) + 
-  guides(color=guide_legend(title="Pool Size")) + 
-  geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
-  theme(legend.position="bottom") + 
-  xlab("Number Positive / Pool size") + ylab("Sensitivity")   
-
-```
-Plot sensitivity as a function of Ct values
-```{r}
-ggplot(sens_dat, aes(x=ct_avg, y=mean, group=as.factor(pool.size))) +
-  geom_line(aes(color=as.factor(pool.size))) + 
-  guides(color=guide_legend(title="Pool Size")) + 
-  geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
-  theme(legend.position="bottom") + 
-  xlab("Average Ct Value") + ylab("Sensitivity") + 
-  ggtitle("Sensitivity as a function of Average Ct Value")
-```
-
-
-Plot probit probability of detection as a function of Ct values
-```{r}
-# Probit probability of detectin as fxn of Ct values
-ggplot(probit %>% group_by(ct_value) %>% 
-         summarize(probit_probability_detection = mean(probit_probability_detection)), 
-       aes(x=ct_value, y=probit_probability_detection)) + 
-  geom_point()
-```
-
+# Simulation: Metrics of interest for Pooled Testing
+Compute metrics of interest (PPA, sensitivity, tests, etc) for each combination of pool size, prevalence, and tau
 ```{r}
 it =1
-pool.max<-20 # maximum pool size
+pool.max<-50 # maximum pool size
 B <- 100 # number of simulations
 
 for (N in 1:pool.max){
-  for (prev in c(0.005, 0.01, 0.05, 0.1, 0.15)){
+  for (prev in c(0.005, 0.01, 0.02)){
     for(tau in seq(0, 0.6, by = 0.1)){
       print(c(prev,tau, N))
       a = list(proba_laws(N, prev, tau, 
@@ -275,6 +242,8 @@ for (N in 1:pool.max){
   } 
 }
 
+#write.csv(res, "sim_may8.csv") # max pool size 50, prev up to 0.02
+#write.csv(res, "sim_may4.csv") # max pool size 20, prev up to 0.2
 #write.csv(res, "sim_april29.csv")
 # write.csv(res, "sim_march31.csv") # sampling tau from uniform distribution
 
@@ -284,10 +253,10 @@ for (N in 1:pool.max){
 
 
 ```{r}
-res <- read.csv("sim_april29.csv")
+ res <- read.csv("sim_may8.csv")
 ```
 
-Calculate 95 percent (emperical) confidence intervals
+Calculate 95 percent (empirical) confidence intervals for metrics of interest
 ```{r}
 conf_int <- res %>% 
   group_by(type, pool_size, tau, prev) %>% 
@@ -308,24 +277,18 @@ conf_int <- res %>%
             missed_q025 = quantile(missed_cases_persample, probs=0.025), 
             missed_q975 = quantile(missed_cases_persample, probs = 0.975))
 ```
-## Debugging
 
-Just generate probabilities
-```{r}
-# inputs for debugging/testing purposes
-N <- 5
-prev <- .1
-tau <- .2
-B <- 10
-```
 
+
+# Investigate Probabilities and KL Divergence
+Repeat the above simulation but saving the probability data in a useful format 
 ```{r}
 it=1
-for (N in 1:pool.max){
-  for (prev in c(0.005, 0.01, 0.05, 0.1, 0.15)){
-    # 0.001, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.2, 0.25, 0.3
+pool.max<-20 # maximum pool size
+B <- 100 # number of simulations
+for (N in c(2, 5, 10, 20)){
+  for (prev in seq(0.005, 0.2, by = 0.01)){
     for(tau in seq(0, 0.6, by = 0.1)){
-      # seq(from=0.00, to=0.7, by=0.005)
       print(c(prev,tau, N))
       a = list(proba_laws(N, prev, tau, 
                           tau_graph_effect=NULL,
@@ -333,35 +296,35 @@ for (N in 1:pool.max){
                           prev_graph_effect=NULL,
                           prev_subject_effect=NULL,
                           null_mod = NULL,
-                          B=10),
+                          B=B),
                proba_laws(N, prev, tau, 
                           tau_graph_effect=tau_graph_effect,
                           tau_subject_effect=NULL, 
                           prev_graph_effect=NULL,
                           prev_subject_effect=NULL,
                           null_mod = NULL,
-                          B=10),
+                          B=B),
                proba_laws(N, prev, tau, 
                           tau_graph_effect=NULL,
                           tau_subject_effect=NULL, 
                           prev_graph_effect=prev_graph_effect,
                           prev_subject_effect=NULL,
                           null_mod = NULL,
-                          B=10),
+                          B=B),
                proba_laws(N, prev, tau, 
                           tau_graph_effect=tau_graph_effect,
                           tau_subject_effect=NULL, 
                           prev_graph_effect=prev_graph_effect,
                           prev_subject_effect=NULL,
                           null_mod = NULL,
-                          B=10), 
+                          B=B), 
                proba_laws(N, prev, tau, 
                           tau_graph_effect=NULL,
                           tau_subject_effect=NULL, 
                           prev_graph_effect=NULL,
                           prev_subject_effect=NULL,
                           null_mod = TRUE,
-                          B=10)
+                          B=B)
       )
       
       names = c("Fixed", "Tau Graph Effect","Pi Graph Effect","All Graph Effect", "Null Model")
@@ -415,21 +378,162 @@ for (N in 1:pool.max){
   } 
 }
 
-#t(sapply(1:B, function(b){a[[1]][,b]}))
+#write.csv(prob_dat_long, "simprobs_may4.csv")
+# may4 is pool.max=20, prev in seq(0.005, 0.2, by = 0.01)
 ```
 
+# ####### --------- Data Visualization --------- ####### #
 
 ```{r}
-table(check$good) #61 probs don't sum to 1
-bad <- check[which(check$good == 0),]
-# apparently the sum is 1 so these are actually ok?
+path.out.figures <- "1_Figures" # Change to where to write output files to
 ```
 
+## Visualize sensitivity 
+## Plot Sensitivity as a function of number infected per pool
+### Plot sensitivity as a function of Ct values
+```{r}
+# data frame of sensitivity as function of number positive per pool
+# sens_plot1 <- ggplot(sens_dat, aes(x=pool.size, y=mean, group=as.factor(positives))) +
+#   geom_line(aes(color=as.factor(positives))) + 
+#   theme(legend.position="bottom") + 
+#   guides(fill=guide_legend(title="Number Positive")) + 
+#   geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
+#   xlab("Pool size") + ylab("Sensitivity") 
+
+# sensitivity as function of fraction of positives in pool
+sens_plot1 <- ggplot(sens_dat, aes(x=pos_frac, y=mean, group=as.factor(pool.size))) +
+  geom_line(aes(color=as.factor(pool.size))) + 
+  guides(color=guide_legend(title="Pool Size")) + 
+  geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
+  theme(legend.position="bottom") + theme_bw()+
+  xlab("Number Positive / Pool size") + ylab("Sensitivity") +
+  ggtitle("Sensitivity vs. Fraction of Pool Positve")
+
+# sensitivity as fxn of Ct values
+sens_plot2 <- ggplot(sens_dat, aes(x=ct_avg, y=mean, group=as.factor(pool.size))) +
+  geom_line(aes(color=as.factor(pool.size))) + 
+  guides(color=guide_legend(title="Pool Size")) + 
+  geom_hline(yintercept = sens_dat$mean[sens_dat$pool.size==1]) + 
+  theme(legend.position="bottom") + theme_bw()+
+  xlab("Average Ct Value") + ylab("") + 
+  ggtitle("Sensitivity vs. Average Ct Value")
+
+pdf(file.path(path.out.figures, "sensitivity_plots.pdf"),width=8, height=5)  
+ggarrange(sens_plot1, sens_plot2, common.legend = TRUE, legend = "bottom")
+dev.off()
+
+```
+
+### Plot probit probability of detection as a function of Ct values
+```{r}
+# Probit probability of detectin as fxn of Ct values
+pdf(file.path(path.out.figures, "prob_detect.pdf"), width =8, height =5)
+ggplot(probit %>% group_by(ct_value) %>% 
+         summarize(probit_probability_detection = mean(probit_probability_detection)), 
+       aes(x=ct_value, y=probit_probability_detection)) + 
+  geom_point(color= "#C77CFF") + theme_bw() +
+  xlab("Ct Value") + ylab("Probit Probability of Detection") + 
+  ggtitle("Probability of Detection vs. Ct Value")
+dev.off()
+```
+## Visualize probability data
+Ideas TODO:
+1.Plot probabilities 
+2.plot cumulative distribution functions, plot for a specific k
+
+### Distance (KL) between Null distribution and alternative models
+Compute a distance metric (e.g. EMD distance, KL divergence, Kolmogorov Smirnov) between distributions (binomial (null) vs. the alternative probability distributions). Make a heat map or curve as function of tau 
+```{r}
+prob_dat_long <- read.csv("simprobs_may4.csv")
+# convert to wide format
+# take median of the simulations for each combination of poolsize, prev, 
+# tau, num pos and type
+prob_dat_wide <- dcast(prob_dat_long, pool_size + prev + tau + num_pos ~ type, 
+                       value.var= "prob_pos", 
+                       fun.aggregate = median)
+colnames(prob_dat_wide) <- c("pool_size", "prev", "tau", "num_pos",
+                             "All_Graph_Effect", "Fixed", "Null_Model", 
+                             "Pi_Graph_Effect", "Tau_Graph_Effect")
+
+# KL divergence as a function of transmission (tau) and prevalence (pi)
+# for specific pool sizes
+library(flexmix) # contains KLdiv fxn
+it=1
+for (s in 1:length(unique(prob_dat_wide$pool_size))){
+  tdat <- prob_dat_wide %>% filter(pool_size == unique(prob_dat_wide$pool_size)[s]) 
+  for (p in 1:length(unique(prob_dat_wide$prev))){
+    for (t in 1:length(unique(prob_dat_wide$tau))){
+      dat_temp <- tdat %>% 
+        filter(prev == unique(prob_dat_wide$prev)[p] & 
+                 tau == unique(prob_dat_wide$tau)[t])
+      div <- data.frame(KLdiv(as.matrix(dat_temp %>% dplyr::select(All_Graph_Effect,
+                                                                   Tau_Graph_Effect,
+                                                                   Pi_Graph_Effect, Fixed,
+                                                                   Null_Model)) ))
+      if (it == 1){
+        div_all <- div %>% 
+          dplyr::select(Null_Model) %>%
+          mutate(type = colnames(div), 
+                 pool_size = unique(prob_dat_wide$pool_size)[s],
+                 prev = unique(prob_dat_wide$prev)[p], 
+                 tau = unique(prob_dat_wide$tau)[t]) %>%
+          filter(type != "Null_Model")
+      }else{
+        div <- div %>% 
+          dplyr::select(Null_Model) %>%
+          mutate(type = colnames(div), 
+                 pool_size = unique(prob_dat_wide$pool_size)[s],
+                 prev = unique(prob_dat_wide$prev)[p], 
+                 tau = unique(prob_dat_wide$tau)[t]) %>%
+          filter(type != "Null_Model")
+        div_all <- rbind(div_all, div)
+      }
+      it = it + 1
+    }
+  }
+}
 
 
-TODO: Plot probabilities 
-plot cumulative distribution functions
-plot for a specific k
+```
+
+```{r}
+# Plot KL Divergence for Probability Distributions for each model type
+div_all$type <- factor(div_all$type, 
+                       levels = c("Fixed","Pi_Graph_Effect", "Tau_Graph_Effect", "All_Graph_Effect"))
+
+# all in one plot
+pdf(file.path(path.out.figures, "KL_div_all.pdf"),width=8, height=5)  
+ggplot(div_all, aes(x=prev, y=tau, fill=Null_Model))+
+  geom_tile() + 
+  scale_fill_gradientn(colours = rainbow(5), values = c(0,0.1, 1))+
+  # can try rainbow(6), etc to see different levels of granularity in plot
+  facet_grid(pool_size~type) + 
+  scale_x_continuous(limits=c(0,.21), breaks=c(0, .1, .2))+
+  theme_light()+
+  guides(fill=guide_colourbar(title="KL Divergence \n from Null Model")) + 
+  xlab(expression(paste("Prevalence (", pi, ")"))) + 
+  ylab(expression(paste("Network Transmission (", tau, ")"))) +
+  ggtitle(paste("KL Divergence from Null Model, by Model Type and Pool Size"))
+dev.off()
+
+# separate plots for each model type
+pdf(file.path(path.out.figures, "KL_div_fixed.pdf"),width=8, height=5)  
+ggplot(div_all  %>% filter(type == "Fixed"), aes(x=prev, y=tau, fill=Null_Model))+
+  geom_tile() + 
+  scale_fill_gradientn(colours = rainbow(5), values = c(0,0.1, 1))+
+  facet_wrap(~pool_size) + 
+  # facet_grad(~pool_size)
+  scale_x_continuous(limits=c(0,.21), breaks=c(0, .1, .2))+
+  theme_light()+
+  guides(fill=guide_colourbar(title="KL Divergence \n from Null Model")) + 
+  xlab(expression(paste("Prevalence (", pi, ")"))) + 
+  ylab(expression(paste("Network Transmission (", tau, ")"))) +
+  ggtitle(paste("KL Divergence between Null and Fixed Models by Pool Size"))
+dev.off()
+```
+
+# TODO: decide what to do with this plot 
+not very nice looking, maybe not useful
 ```{r}
 colourCount <- length(unique(prob_dat_long$num_pos))
 myColors <- colorRampPalette(brewer.pal(9, "Set1"))(colourCount)
@@ -454,161 +558,130 @@ ggplot(prob_dat_long, mapping = aes(x=prob_pos, fill=as.factor(num_pos))) +
 ```
 
 
+# Visualization of Simulation Results for Metrics of Interest
 
-
-```{r}
-res %>%
-  group_by(tau, prev, pool_size) %>%
-  summarise(n())
-```
-
-
-# Plotting
-
-
-
-
-
-```{r}
-# Separate plots for each Tau, line color is Type
-tau_val <- seq(0, .6, .1)
-
-sens_plots <- lapply(tau_val, function(i){
-  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_sens, color=as.factor(type))) +
-  geom_line() +
-  facet_wrap(~ prev) +
-  geom_ribbon(aes(x=pool_size, ymin = sens_q025, ymax = sens_q975, 
-                  fill = as.factor(type)), show.legend = F, alpha = 0.3)+
-  theme_bw() + 
-  theme(axis.title.x = element_blank())+
-  # scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
-  xlab("Pool size") + 
-  ylab("Sensitivity") +
-  #scale_y_continuous(limits=c(0.5, 1)) +
-  ggtitle(paste("Tau =", i)) +
-  #scale_x_continuous(limits=c(1,10), breaks=seq(0,10,2)) +
-  guides(color=guide_legend(title="Correlation")) 
-})
-
-library(ggpubr)
-
-pdf("sensitivity_figa.pdf",width=8, height=5)  
-do.call(ggarrange, c(sens_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
-dev.off()
-
-pdf("sensitivity_figb.pdf",width=8, height=5)  
-do.call(ggarrange, c(sens_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
-dev.off()
-
-# jitter the position so they don't overlap exactly
-# compare to the null: binomial (non correlation, independence)
-# to compute CI: empirical quantiles 97.5 and 2.5 from the simulation
-# fix y-limits to be fro 0.5 to 1
-# fix specific value of tau and prev
-```
+## Sensitivity
 ```{r}
 types <- factor(c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
 types <- factor(types, levels = c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
-levels(types)
-lapply(types[2:5], function(i){
-  ggplot(conf_int %>% filter( type == "Null Model" | type == i), 
-       aes(x=pool_size, y= mean_sens, color=as.factor(tau))) +
-  geom_line(aes(linetype = type)) +
+conf_int$type <- factor(conf_int$type, levels = c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
+lines <- c("Alternative Model" = "solid", "Null Model" = "dashed")
+
+sens_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter(type == i), aes(x=pool_size, y= mean_sens)) +
+  geom_line(aes(color=as.factor(tau), linetype = "Alternative Model")) +
+  geom_line(data=conf_int[conf_int$type == "Null Model",], aes(linetype = "Null Model"))+
   facet_wrap(~ prev) +
   geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = sens_q025, ymax = sens_q975, 
-                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, 
-              colour = NA)+
-  scale_linetype_manual(values = c("dashed", "solid")) +
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, colour = NA)+
+  scale_linetype_manual(values = lines) +
   theme_bw() + 
   #theme(axis.title.x = element_blank())+
-  xlab("Pool size") + ylab("Sensitivity") +
+  labs(x = "Pool size", y = "Sensitivity", 
+       linetype = lines) +
   ggtitle(i) +
   guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
 })
+
+pdf(file.path(path.out.figures, "sensitivity_plots.pdf"), width=8, height=5)
+sens_plots
+dev.off()
 ```
 
+Interpretation: 
+Pi Graph effect: when tau = 0 there is high variability. when tau>0, as soon as you have one infected person, you are likely to have many, so performance is similar is across all. 
 
+
+## PPA
 ```{r}
-ppa_plots <- lapply(tau_val, function(i){
-  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_ppa, color=as.factor(type))) +
-    geom_line() +
-    #geom_point()+
-    facet_wrap(~ prev) +
-    geom_ribbon(aes(x=pool_size, ymin = ppa_ql, ymax = ppa_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
-    theme_bw() + 
-    theme(axis.title.x = element_blank())+
-    xlab("Pool size") + 
-    ylab("PPA") +
-    ggtitle(paste("Tau =", i)) +
-    guides(color=guide_legend(title="Correlation")) 
+tau_val <- unique(conf_int$tau)
+lines <- c("Alternative Model" = "solid", "Null Model" = "dashed")
+
+ppa_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter(type == i), aes(x=pool_size, y= mean_ppa)) +
+  geom_line(aes(color=as.factor(tau), linetype = "Alternative Model")) +
+  geom_line(data=conf_int[conf_int$type == "Null Model",], aes(linetype = "Null Model"))+
+  facet_wrap(~ prev) +
+  geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = ppa_q025, ymax = ppa_q975, 
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, colour = NA)+
+  scale_linetype_manual(values = lines) +
+  theme_bw() + 
+  #theme(axis.title.x = element_blank())+
+  labs(x = "Pool size", y = "PPA", 
+       linetype = lines) +
+  ggtitle(i) +
+  guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
 })
 
-pdf("ppa_figa.pdf",width=8, height=5)  
-do.call(ggarrange, c(ppa_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
-dev.off()
-
-pdf("ppa_figb.pdf",width=8, height=5)  
-do.call(ggarrange, c(ppa_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+pdf(file.path(path.out.figures, "ppa_plots.pdf"), width=8, height=5)
+ppa_plots
 dev.off()
 ```
-
+## Tests
 ```{r}
-tests_plots <- lapply(tau_val, function(i){
-  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_tests, color=as.factor(type))) +
-    geom_line() +
-    #geom_point()+
-    facet_wrap(~ prev) +
-    geom_ribbon(aes(x=pool_size, ymin = num_tests_ql, ymax = num_tests_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
-    theme_bw() + 
-    theme(axis.title.x = element_blank())+
-    xlab("Pool size") + 
-    ylab("Expected Number Tests / Sample") +
-    ggtitle(paste("Tau =", i)) +
-    guides(color=guide_legend(title="Correlation")) 
+lines <- c("Alternative Model" = "solid", "Null Model" = "dashed")
+
+tests_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter(type == i), aes(x=pool_size, y= mean_tests)) +
+  facet_wrap(~ prev) +
+  geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = tests_q025, ymax = tests_q975, 
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, colour = NA)+
+    geom_line(aes(color=as.factor(tau), linetype = "Alternative Model")) +
+  geom_line(data=conf_int[conf_int$type == "Null Model",], aes(linetype = "Null Model"))+
+  scale_linetype_manual(values = lines) +
+  theme_bw() + 
+  #theme(axis.title.x = element_blank())+
+  labs(x = "Pool size", y = "Tests per Sample", 
+       linetype = lines) +
+  ggtitle(i) +
+  guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
 })
-pdf("tests_figa.pdf",width=8, height=5)  
-do.call(ggarrange, c(tests_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
-dev.off()
 
-pdf("tests_figb.pdf",width=8, height=5)  
-do.call(ggarrange, c(tests_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+pdf(file.path(path.out.figures, "tests_plots.pdf"), width=8, height=5)
+tests_plots
 dev.off()
 ```
+## Missed Cases
 ```{r}
-missed_plots <- lapply(tau_val, function(i){
-  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_missed, color=as.factor(type))) +
-    geom_line() +
-    #geom_point()+
-    facet_wrap(~ prev) +
-    #geom_errorbar(aes(x=pool_size, ymin=ci_lower, ymax=ci_upper), width=.3) +
-    geom_ribbon(aes(x=pool_size, ymin = missed_cases_ql, ymax = missed_cases_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
-    theme_bw() + 
-    theme(axis.title.x = element_blank())+
-    # scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
-    xlab("Pool size") + 
-    ylab("Missed Cases / Sample") +
-    ggtitle(paste("Tau =", i)) +
-    guides(color=guide_legend(title="Correlation")) 
+tau_val <- unique(conf_int$tau)
+lines <- c("Alternative Model" = "solid", "Null Model" = "dashed")
+
+missed_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter(type == i), aes(x=pool_size, y= mean_missed)) +
+  geom_line(aes(color=as.factor(tau), linetype = "Alternative Model")) +
+  geom_line(data=conf_int[conf_int$type == "Null Model",], aes(linetype = "Null Model"))+
+  facet_wrap(~ prev) +
+  geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = missed_q025, ymax = missed_q975, 
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, colour = NA)+
+  scale_linetype_manual(values = lines) +
+  theme_bw() + 
+  #theme(axis.title.x = element_blank())+
+  labs(x = "Pool size", y = "Missed Cases per Sample", 
+       linetype = lines) +
+  ggtitle(i) +
+  guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
 })
-pdf("missed_figa.pdf",width=8, height=5)  
-do.call(ggarrange, c(missed_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
-dev.off()
 
-pdf("missed_figb.pdf",width=8, height=5)  
-do.call(ggarrange, c(missed_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+pdf(file.path(path.out.figures, "missed_plots.pdf"), width=8, height=5)
+missed_plots
 dev.off()
 ```
+
+
+# combined plot by graph type
 ```{r}
-pdf("all_tau_3.pdf", width = 8, height = 5)
-ggarrange(sens_plots[[4]], ppa_plots[[4]], tests_plots[[4]], missed_plots[[4]], 
-          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
-dev.off()
-pdf("all_tau_0.pdf", width = 8, height = 5)
-ggarrange(sens_plots[[1]], ppa_plots[[1]], tests_plots[[1]], missed_plots[[1]], 
-          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
+pdf(file.path(path.out.figures, "combined_allgraph_plots.pdf"), width=8, height=8)
+ggarrange(sens_plots[[1]]+labs(x=""), 
+          ppa_plots[[1]]+ggtitle("")+labs(x="", y="Relative Sensitivity"), 
+          tests_plots[[1]]+ggtitle(""), 
+          missed_plots[[1]]+ggtitle(""), 
+          nrow = 2, ncol = 2, 
+          common.legend = TRUE, legend = "bottom")
 dev.off()
 ```
 
+
+TODO: summary table
 ```{r}
 # table to nummerically summarize some of the graphical results
 null_res <- res %>%
@@ -634,35 +707,7 @@ write.csv(summary_table, "summary_table_ppa.csv")
 
 
 
-```{r}
-ggplot() +
-  geom_point(res, mapping = aes(x=pool_size, y= sensit, color=as.factor(type))) +
-  facet_grid(tau ~ prev) +
-  theme_bw() + 
-  theme(axis.title.x = element_blank())+
-  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
-  xlab("Pool size") + 
-  ylab("Sensitivity") +
-  # ggtitle("Correlated vs. IID Samples") +
-  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + 
-  guides(color=guide_legend(title="Correlation")) 
 
-# use geom_ribbon()
-```
-
-```{r}
-ggplot() +
-  geom_point(res, mapping = aes(x=pool_size, y= num_tests, color=as.factor(type))) +
-  facet_grid(tau ~ prev) +
-  theme_bw() + 
-  theme(axis.title.x = element_blank())+
-  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
-  xlab("Pool size") + 
-  ylab("Expected Number Tests / Sample") +
-  # ggtitle("Correlated vs. IID Samples") +
-  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + 
-  guides(color=guide_legend(title="Correlation")) 
-```
 
 
 
