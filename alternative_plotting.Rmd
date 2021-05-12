@@ -1,0 +1,124 @@
+---
+title: "Alternative Plotting Options"
+output: html_notebook
+---
+
+Plot sensitivity as a function of pool size
+line colored by tau
+faceted by prevalence
+separate plots for each model 
+```{r}
+# uses conf_int data set
+types <- factor(c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
+types <- factor(types, levels = c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
+conf_int$type <- factor(conf_int$type, levels = c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
+lines <- c("Alternative Model" = "solid", "Null Model" = "dashed")
+
+sim_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter( type == "Null Model" | type == i), 
+       aes(x=pool_size, y= mean_sens)) +
+  geom_line(aes(linetype = type, color=as.factor(tau))) +
+  geom_point(data=conf_int[conf_int$type == "Null Model",], shape=1, color="grey")+
+  facet_wrap(~ prev) +
+  geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = sens_q025, ymax = sens_q975, 
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, 
+              colour = NA)+
+  scale_linetype_manual(values = c("dashed", "solid")) +
+  theme_bw() + 
+  #theme(axis.title.x = element_blank())+
+  xlab("Pool size") + ylab("Sensitivity") +
+  ggtitle(i) +
+  guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
+})
+```
+
+PPA faceted by tau
+```{r}
+tau_val <- unique(conf_int$tau)
+ppa_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_ppa, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    geom_ribbon(aes(x=pool_size, ymin = ppa_q025, ymax = ppa_q975, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    xlab("Pool size") + 
+    ylab("PPA") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+ppa_plots
+pdf("ppa_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(ppa_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("ppa_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(ppa_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+
+Tests faceted by tau
+```{r}
+tests_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_tests, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    geom_ribbon(aes(x=pool_size, ymin = num_tests_ql, ymax = num_tests_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    xlab("Pool size") + 
+    ylab("Expected Number Tests / Sample") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+pdf("tests_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(tests_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("tests_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(tests_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+
+```{r}
+missed_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_missed, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    #geom_errorbar(aes(x=pool_size, ymin=ci_lower, ymax=ci_upper), width=.3) +
+    geom_ribbon(aes(x=pool_size, ymin = missed_cases_ql, ymax = missed_cases_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    # scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+    xlab("Pool size") + 
+    ylab("Missed Cases / Sample") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+pdf("missed_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(missed_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("missed_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(missed_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+
+```{r}
+pdf("all_tau_3.pdf", width = 8, height = 5)
+ggarrange(sens_plots[[4]], ppa_plots[[4]], tests_plots[[4]], missed_plots[[4]], 
+          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
+dev.off()
+pdf("all_tau_0.pdf", width = 8, height = 5)
+ggarrange(sens_plots[[1]], ppa_plots[[1]], tests_plots[[1]], missed_plots[[1]], 
+          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
+dev.off()
+```
+
+
+
+
+
