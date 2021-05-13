@@ -98,7 +98,7 @@ Jing_SAR <- Jing2020_house2 %>%
             SAR = secondary/num_contacts, 
             data_id = "Jing2020") %>%
   distinct() # 149 clusters after dropping the 19 that only have 1 person
-
+mean(Jing_SAR$SAR)
 # SAR = number new cases among contacts / total number of contacts
 ```
 #? 
@@ -128,19 +128,30 @@ $$
 (\alpha_{old} - \alpha_{new})^2 + (\beta_{old} - \beta_{new})^2 < \epsilon
 $$
 ```{r}
+hist(all_SAR$SAR, breaks = 30)
+
+hist(all_SAR$secondary, breaks=30)
+
+hist(all_SAR$num_contacts, breaks=30)
+
+ggplot(all_SAR, aes(x=num_contacts)) + 
+  geom_histogram()
+```
+```{r}
+sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
+```
+
+
+```{r}
 b <- 10
 # initialize parameters
 alpha <- numeric(b)
 beta <- numeric(b)
-xbar <- numeric(b)
-vbar <- numeric(b)
-alpha[1] <- 2
-beta[1] <- 2
-
-getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-}
+m1 <- numeric(b)
+m2 <- numeric(b)
+alpha[1] <- 1
+beta[1] <- 1
+N <- nrow(all_SAR)
 
 for (i in 2:b){
   # E step
@@ -148,20 +159,93 @@ for (i in 2:b){
   print(paste("tau_g: ", round(head(tau_g), 2)))
   
   # M step
-  xbar[i] <- getmode(tau_g)
-  #xbar[i] <- (1/length(tau_g))*sum(tau_g)
-  vbar[i] <- (1/(length(tau_g)-1))*sum((tau_g - xbar[i])^2)
-  print(paste("vbar= ", round(vbar[i], 3), "xbar*(1-xbar)= ", round(xbar[i]*(1-xbar[i]), 3)))
+  m1[i] <- mean(tau_g)
+  m2[i] <- mean(tau_g^2)
+  print(paste("m1= ", round(m1[i], 3), "m2= ", round(m2[i], 3)))
+  mfrac <- m2[i]/m1[i]
+  #denom <- (all_SAR$num_contacts*(mfrac - m1[i] - 1) + m1[i])
+  denom <- (n*(mfrac - m1[i] - 1) + m1[i])
   
-  alpha[i] <- xbar[i]*(((xbar[i]*(1-xbar[i]))/vbar[i])-1)
-  beta[i] <- (1-xbar[i])*(((xbar[i]*(1-xbar[i]))/vbar[i])-1)
+  alpha[i] <- (n*m1[i] - m2[i]) / denom
+  beta[i] <- ((n - m1[i]*(n - mfrac))) / denom  
+  #alpha[i] <- (all_SAR$num_contacts*m1[i] - m2[i]) / denom
+  #beta[i] <- ((all_SAR$num_contacts - m1[i]*(all_SAR$num_contacts - mfrac))) / denom
   print(paste("alpha= ", alpha[i], "beta= ", beta[i]))
   print((alpha[i-1]-alpha[i])^2 + (beta[i-1]-beta[i])^2)
 }
 ```
 
+Let $k_i$ be the number of successes out of $n_i$ trials for event $i$: 
+$$
+k_i \sim Bin(n_i, \theta_i) \\
+\theta_i \sim Beta(\mu, M), i.i.d
+$$
+
+To find the point estimates of $\mu$ and $M$ we use the sample: 
+$$
+
+$$
+
+```{r}
+N <- nrow(all_SAR)
+
+# point estimates for mu and M
+hat_theta = all_SAR$secondary / all_SAR$num_contacts
+mu = sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
+s2 = N *  sum(all_SAR$num_contacts * (hat_theta -mu)^2)/((N-1) * sum(all_SAR$num_contacts))
+M_hat = (mu * (1-mu) -s2)/(s2 - mu * (1-mu)/N * sum(1/all_SAR$num_contacts))
+
+# point estimate for the posterior (probability of success for event i)
+theta_i <- (all_SAR$secondary + M_hat*mu)/(all_SAR$num_contacts + M_hat)
+all_SAR$theta_i <- theta_i
+
+hist(theta_i)
+hist(all_SAR$SAR, alpha=0.5,add=TRUE, col="green")
+
+ggplot(all_SAR)+
+  geom_histogram(aes(x=theta_i), alpha=0.3, fill="red", position="dodge")+
+  geom_histogram(aes(x=SAR), alpha=0.3, fill="green", position="dodge")
+
+hist(dbinom(x=all_SAR$secondary, size=all_SAR$num_contacts, prob=theta_i), 
+     breaks = 20)
+```
+
+Simulate number of infections using fited distribution, compare to observed
+```{r}
+B <- 1000
+mock <- sapply(1:B, function(b){
+  u = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,all_SAR$theta_i)/x}) 
+  o = ks.test(u, all_SAR$SAR)
+  return(o$p.value)
+})
+hist(mock)
 
 
+sim_dist <- lapply(all_SAR$num_contacts, function(x){rbinom(100,x,all_SAR$theta_i)})
+sim_dist <- data.frame(x=unlist(sim_dist))
+
+ggplot()+
+  geom_density(data=sim_dist, aes(x=x), alpha=0.3, fill="red")+
+  geom_density(data=all_SAR, aes(x=secondary), alpha=0.3, fill="green")+
+  ggtitle("Simulated Secondary Cases vs. Observed")
+
+```
+
+```{r}
+##### Check goodness of fit
+mock <- sapply(1:B, function(b){
+  u = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199)/x}) + rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #m = as.matrix(rbind(as.numeric(names(table(u))), table(u)))
+  v = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199)/x})+ rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #mm = as.matrix(rbind(as.numeric(names(table(v))), table(v)))
+  o = ks.test(u, all_SAR$secondary/all_SAR$num_contacts + rnorm(length(all_SAR$num_contacts), 0, 0.001))
+  oo = ks.test(u, v, )
+  return(c(o$p.value, oo$p.value))
+})
+hist(mock[1,])
+hist(mock[2,], alpha=0.5,add=TRUE)
+mean(mock[2,] < mean(mock[1,]))
+```
 
 
 The beta distribution is the conjugate prior probability distribution to the binomial and is a useful model for the random behavior of a percentage/proportion (since it is defined n the interval [0,1]). Given our observed SAR values (data, $X$) and a beta prior, we want to estimate the parameters (alpha and beta) 
