@@ -388,6 +388,8 @@ for (N in c(2, 5, 10, 20)){
 path.out.figures <- "1_Figures" # Change to where to write output files to
 ```
 
+
+
 ## Visualize sensitivity 
 ## Plot Sensitivity as a function of number infected per pool
 ### Plot sensitivity as a function of Ct values
@@ -560,6 +562,8 @@ ggplot(prob_dat_long, mapping = aes(x=prob_pos, fill=as.factor(num_pos))) +
 
 # Visualization of Simulation Results for Metrics of Interest
 
+
+
 ## Sensitivity
 ```{r}
 types <- factor(c("Null Model", "All Graph Effect", "Fixed", "Pi Graph Effect", "Tau Graph Effect"))
@@ -680,6 +684,266 @@ ggarrange(sens_plots[[1]]+labs(x=""),
 dev.off()
 ```
 
+## Area under the Curve: tests per sample vs. efficiency
+Objective: minimize tests per sample, maximize sensitivity
+
+Expected number of tests per sample is defined as follows:
+$$
+ \eta =  \frac{1}{n} \times \mathbb{E}[1 + n \times \mathbb{P}[\text{test is positive}]  ] = \frac{1}{n} + \mathbb{P}[\text{test is positive}] = \frac{1}{n} + \sum_{k=1}^n \mathbb{P}[\text{test is positive} |\sum_i Y_i =k] p_k
+$$
+We want to minimize tests per sample
+Transform to a quantity that we want to maximize, e.g. number of tests saved per pool of size $n$
+$$
+n -(n\times \eta) = n \times(1-\eta)
+$$
+Hoever this transformtion depends on pool size and we want the x-axis to be independent of pool size. 
+
+not sure which transformation is better
+```{r}
+# Trying different transformations
+ggplot(conf_int %>% filter(type== "Fixed" & prev==0.02 & tau==0.2)) +
+  geom_point(aes(x=pool_size*(1-mean_tests), y = mean_sens,color=factor(pool_size)))+
+  ggtitle("Fixed Model, Prev=0.02, Tau=0.2")
+
+ggplot(conf_int %>% filter(type== "Fixed" & prev==0.02), 
+       aes(x=pool_size*(1-mean_tests), y = mean_sens,
+           color=factor(tau))) +
+  geom_point()+
+  ggtitle("Fixed Model, Prev=0.02")
+
+ggplot(conf_int %>% filter(type== "Fixed" & prev==0.02 & tau==0.2)) +
+  geom_point(aes(x=(1+pool_size)-mean_tests, y = mean_sens, color=pool_size))+
+  ggtitle("Fixed Model, Prev=0.02, Tau=0.2")
+
+ggplot(conf_int %>% filter(type== "Fixed" & prev==0.02 & tau==0.2)) +
+  geom_point(aes(x=mean_sens, y = -sign(1-mean_tests)*(1-mean_tests), color=pool_size))+
+  ggtitle("Fixed Model, Prev=0.02, Tau=0.2")
+
+# 2-mean_tests is the transformation we want
+# trajectory of multiple taus
+sens.v.tests1 <- ggplot(conf_int %>% filter(type== "Fixed" & prev==0.02), 
+       aes(x=2-mean_tests, y = mean_sens, 
+                color=factor(tau))) +
+  geom_point(aes(size=pool_size), alpha=0.6)+
+  labs(x="2- Mean Tests per Sample", y="Mean Sensitivity")+
+  guides(color=guide_legend(title="Tau"), 
+         size=guide_legend(title="Pool Size"))+
+  ggtitle("Sensitivity vs Tests/Sample, Fixed Model, Prev=0.02")+
+  theme_bw()
+
+# trajectory of relative difference with tau=0
+fixed_only <- conf_int %>% 
+  filter(type=="Fixed") %>%
+  group_by(pool_size, prev) %>%
+  mutate(tau0delta_sens = mean_sens - mean_sens[tau==0], 
+         tau0delta_tests = (mean_tests-mean_tests[tau==0]))
+ 
+ sens.v.tests2 <- ggplot(fixed_only %>% filter(prev==0.02), 
+       aes(x=tau0delta_tests, y = tau0delta_sens, 
+                color=factor(tau))) +
+  geom_point(aes(size=pool_size), alpha=0.6)+
+   labs(x="Mean Tests per Sample- Mean Tests per Sample[tau=0]", 
+        y="Mean Sensitivity[tau=0] - Mean Sensitivity")+
+  guides(color=guide_legend(title="Tau"), 
+         size=guide_legend(title="Pool Size"))+
+  ggtitle("Delta Tau=0 Model, Sensitivity vs Tests/Sample, Fixed Model, Prev=0.02")+
+  theme_bw()
+ 
+pdf(file.path(path.out.figures, "sens.v.tests_plots.pdf"),width=8, height=8)  
+ggarrange(sens.v.tests1, sens.v.tests2, 
+          nrow=1, ncol=1,
+          common.legend = TRUE, legend = "right")
+dev.off()
+
+```
+
+
+
+Repeat the simulations to get data for a "perfect test" (sensitivity = 1)
+```{r}
+it =1
+
+metric_calcs <- function(pool.max, B, prevs, taus, perfect_test){
+  for (N in 1:pool.max){
+    for (prev in prevs){
+      for(tau in taus){
+        print(c(prev,tau, N))
+        a = list(proba_laws(N, prev, tau, 
+                            tau_graph_effect=NULL,
+                            tau_subject_effect=NULL, 
+                            prev_graph_effect=NULL,
+                            prev_subject_effect=NULL,
+                            null_mod = NULL,
+                            B=B),
+                 proba_laws(N, prev, tau, 
+                            tau_graph_effect=tau_graph_effect,
+                            tau_subject_effect=NULL, 
+                            prev_graph_effect=NULL,
+                            prev_subject_effect=NULL,
+                            null_mod = NULL,
+                            B=B),
+                 proba_laws(N, prev, tau, 
+                            tau_graph_effect=NULL,
+                            tau_subject_effect=NULL, 
+                            prev_graph_effect=prev_graph_effect,
+                            prev_subject_effect=NULL,
+                            null_mod = NULL,
+                            B=B),
+                 proba_laws(N, prev, tau, 
+                            tau_graph_effect=tau_graph_effect,
+                            tau_subject_effect=NULL, 
+                            prev_graph_effect=prev_graph_effect,
+                            prev_subject_effect=NULL,
+                            null_mod = NULL,
+                            B=B), 
+                 proba_laws(N, prev, tau, 
+                            tau_graph_effect=NULL,
+                            tau_subject_effect=NULL, 
+                            prev_graph_effect=NULL,
+                            prev_subject_effect=NULL,
+                            null_mod = TRUE,
+                            B=B)
+        )
+        
+        names = c("Fixed", "Tau Graph Effect","Pi Graph Effect","All Graph Effect", "Null Model")
+        for (n in 1:5){
+          if(perfect_test == TRUE){
+            sens <- 1
+            sens_indiv <- 1
+          }else{
+            sens <- data.frame(sens_fxn(N)) # prob(test positive | sum(Y_i) = k)
+            sens <- sens$mean 
+            sens_indiv <- data.frame(sens_fxn(1))$mean
+          }
+          
+          prob_pos <- sapply(1:B, function(b){sum(a[[n]][2:(N+1), b] * sens)}) 
+          # a[[n]][2:(N+1), b] is the vector of probablities (for the bth simulation)
+          # of having 1:N positives in a pool of size N
+          if (it ==1){
+            res = data.frame(
+              sensit = sapply(1:B, function(b){
+                sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}), #sensitivity
+              
+              ppa = sapply(1:B, function(b){
+                (sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))/sens_indiv}),
+              
+              num_tests = (1/N) + prob_pos,
+              #num_tests = (1/N) + sapply(1:B, function(b){sum(a[[n]][2:(N+1), b])}) +,
+              
+              caught_cases = sapply(1:B, function(b){
+                (sum(c(1:N)*a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))})/((1/N) + prob_pos),
+              
+              missed_cases_persample = sapply(1:B, function(b){ # missed cases per sample
+                (sum(c(1:N)*a[[n]][2:(N+1), b] * (1-sens)))})/((1/N) + prob_pos),
+              
+              type = names[n], 
+              pool_size = N, 
+              prev = prev, 
+              tau = tau)
+          }else{
+            res = rbind(res,
+                        data.frame(sensit = sapply(1:B, function(b){
+                          sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}),
+                          
+                          ppa = sapply(1:B, function(b){
+                            (sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))/sens_indiv}),
+                          
+                          num_tests = (1/N) + prob_pos,
+                          
+                          caught_cases = sapply(1:B, function(b){
+                            (sum(c(1:N)*a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))})/((1/N) + prob_pos),
+                          
+                          missed_cases_persample = sapply(1:B, function(b){ # missed cases per sample
+                            (sum(c(1:N)*a[[n]][2:(N+1), b] * (1-sens)))})/((1/N) + prob_pos),
+                          type = names[n], 
+                          pool_size = N, 
+                          prev = prev, 
+                          tau = tau))
+          }
+          it = it + 1
+        }
+      }
+    } 
+  }
+  return(res)
+}
+
+perfecttest_dat <- metric_calcs(pool.max=50, B=100, prevs=c(0.005, 0.01, 0.02), 
+             taus=seq(0, 0.6, by = 0.1), perfect_test=TRUE)
+#write.csv(perfecttest_dat, "perfect_test_dat.csv")
+
+# add columns for metrics relative to tau=0
+# trajectory of relative difference with tau=0
+conf_int_perfect <- perfecttest_dat %>% 
+  group_by(type, pool_size, tau, prev) %>% 
+  summarise(sd_sens= sd(sensit), 
+            sd_ppa = sd(ppa), 
+            sd_tests = sd(num_tests), 
+            sd_missed = sd(missed_cases_persample),
+            mean_sens= mean(sensit), 
+            mean_ppa = mean(ppa), 
+            mean_tests = mean(num_tests), 
+            mean_missed = mean(missed_cases_persample), 
+            sens_q025 = quantile(sensit, probs=0.025), 
+            sens_q975 = quantile(sensit, probs = 0.975), 
+            ppa_q025 = quantile(ppa, probs=0.025), 
+            ppa_q975 = quantile(ppa, probs = 0.975), 
+            tests_q025 = quantile(num_tests, probs=0.025), 
+            tests_q975 = quantile(num_tests, probs = 0.975), 
+            missed_q025 = quantile(missed_cases_persample, probs=0.025), 
+            missed_q975 = quantile(missed_cases_persample, probs = 0.975))
+
+perfect_fixed_only <- conf_int_perfect %>% 
+  filter(type=="Fixed") %>%
+  group_by(pool_size, prev) %>%
+  mutate(tau0delta_sens = mean_sens, # don't subtract mean_sens[tau==0] because they are all 1 
+         tau0delta_tests = (mean_tests-mean_tests[tau==0]))
+```
+
+
+
+```{r}
+library(zoo) #AUC fxn
+
+calc_AUC <- function(df, prevtau_grid, prev_i, tau_i){
+  
+  get_AUC <- function(prev_i, tau_i){
+    dat <- df %>% 
+      filter(type=="Fixed" & prev==prev_i & tau==tau_i)
+    #mutate(test_transf1= 
+    #test_transf1 = (1+pool_size)-mean_tests, 
+    #test_transf2 = pool_size*(1-mean_tests))
+    x <-  dat$tau0delta_tests
+    y <- dat$tau0delta_sens
+    id <- order(x)
+    
+    AUC <- sum(diff(x[id])*rollmean(y[id],2))
+    #https://stackoverflow.com/questions/4954507/calculate-the-area-under-a-curve
+  }
+  mapply(get_AUC, prev_i= prevtau_grid$prev_i, tau_i= prevtau_grid$tau_i)
+  
+}
+
+#calc_AUC(prev_i=0.02, tau_i=0.2)
+
+
+prevtau_grid <- expand.grid(prev_i=unique(conf_int$prev), tau_i=unique(conf_int$tau))
+
+aucs <- calc_AUC(fixed_only, prevtau_grid, prev_i= prevtau_grid$prev_i, tau_i= prevtau_grid$tau_i)
+
+
+aucs_perfect <- calc_AUC(perfect_fixed_only, prevtau_grid, prev_i= prevtau_grid$prev_i, tau_i= prevtau_grid$tau_i)
+
+all_auc <- cbind(prevtau_grid, aucs, aucs_perfect)
+
+
+pdf(file.path(path.out.figures, "auc_sens.v.tests_plots.pdf"),width=8, height=5)  
+ggplot(all_auc)+
+  geom_point(aes(x=prev_i, y=aucs, color=factor(tau_i)))+
+  ggtitle("AUC of Sensitivity vs. Tests Relative to Tau=0")+
+  theme_bw()
+dev.off()
+```
 
 TODO: summary table
 ```{r}

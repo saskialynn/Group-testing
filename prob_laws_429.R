@@ -30,7 +30,7 @@ prev_subject_effect <- function(x, N){
 }
 
 tau_graph_effect <- function(x, B){ # sample tau from unif[.5*tau, 1.5*tau]
-  return(runif(B, 0.5 *x, 1.5 * x ))
+  return(runif(B, 0.5 *x, 1.5 * x )) #rbeta
 }
 
 tau_subject_effect <- function(x, N){ # check this with Claire

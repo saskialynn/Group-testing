@@ -121,7 +121,7 @@ $$
 $$
 where $s_g$ is the number of secondary cases and $N_g$ is the number of contacts in group $g$. 
 
-3. M step: impute $\alpha$ and $\beta$ using the method of moment estimates for a Beta distribution
+3. M step: impute $\alpha$ and $\beta$ using the method of moment estimates for a Beta distribution (see here: https://en.wikipedia.org/wiki/Beta_distribution#Parameter_estimation)
 
 4. Repeat the E and M steps, updating $\alpha$ and $\beta$ each time until the parameter values converge, i.e. stabilize such that
 $$
@@ -175,6 +175,12 @@ for (i in 2:b){
 }
 ```
 
+## Beta Binomial Distribution
+EM algorithm doesn't converge- probably because data is zero inflated
+Rather than using EM, we can reparameterize the problem and then have closed form solutions
+
+Use this method: 
+https://en.wikipedia.org/wiki/Beta-binomial_distribution#Further_Bayesian_considerations
 Let $k_i$ be the number of successes out of $n_i$ trials for event $i$: 
 $$
 k_i \sim Bin(n_i, \theta_i) \\
@@ -220,7 +226,7 @@ mock <- sapply(1:B, function(b){
 })
 hist(mock)
 
-
+# just to visualize- not a formal test
 sim_dist <- lapply(all_SAR$num_contacts, function(x){rbinom(100,x,all_SAR$theta_i)})
 sim_dist <- data.frame(x=unlist(sim_dist))
 
@@ -230,9 +236,57 @@ ggplot()+
   ggtitle("Simulated Secondary Cases vs. Observed")
 
 ```
+TODO: need to access goodness of fit. CPO and PPO for Bayesian Goodness of Fit
+
+TODO: Likelihood Ratio Test
+```{r}
+u = sapply(1:length(all_SAR$num_contacts), function(x){
+  tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+  log(pbinom(all_SAR$secondary[x], all_SAR$num_contacts[x],tau))
+})
+
+likelihood <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+    log(pbinom(all_SAR$secondary[x], uu[x],tau ))
+  })
+  return( sum(u - uuu))
+})
+
+u0 = sapply(1:length(all_SAR$num_contacts), function(x){
+  tau = 0.199
+  log(pbinom(all_SAR$secondary[x], all_SAR$num_contacts[x],tau))
+})
+
+likelihood0 <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199 )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = 0.199   
+    log(pbinom(all_SAR$secondary[x], uu[x],tau ))})
+  return( sum(u0 - uuu))
+})
+
+likelihood2 <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+    log(pbinom(all_SAR$secondary[x], uu[x],tau ))
+  })
+  vv = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  vvv = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+    log(pbinom(all_SAR$secondary[x], vv[x],tau ))
+  })
+  return( c(sum(vvv - uuu)))
+})
+```
+
+
+
 
 ```{r}
-##### Check goodness of fit
+##### Check goodness of fit (from Claire)
 mock <- sapply(1:B, function(b){
   u = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199)/x}) + rnorm(length(all_SAR$num_contacts), 0, 0.001)
   #m = as.matrix(rbind(as.numeric(names(table(u))), table(u)))
@@ -296,34 +350,49 @@ gofstat(list(fw,fno,fg,fln))
 ## so lets go back to the unscaled data  (as above)
 ```
 
+----------------------------------------------------------------------------
 
 # Prevalence 
 
+Better to use number of ACTIVE cases rather than number of new cases
+
+model coefficient of variation (sd / mean): linear? fit distribution that matches these properties
+don't take entire time series; generate coefficient of variation per week 
+look at distribution of coefficient of variation as function of prevalence
+If coefficient of variation is roughly linear, find distribution that roughly fits this criteria
+
+### Active Case data
+We actually want active cases, not new daily cases
+```{r}
+COUNTRY_DATA <- read.csv(file="https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv", header=T, sep=",")
+
+COUNTRY_DATA$date <- (as.Date(COUNTRY_DATA$date, "%Y-%m-%d"))
+
+US_DATA <- COUNTRY_DATA %>% filter(location == "United States")
+```
+
+## TODO: use this dataset with smoothed values to get activecases (new_cases_smoothed)
+plot coefficient of variation of new_cases_smoothed 
+want to know: how much does variance change as a function of prevalence?
+modeling uncertainty based on data
+
+## New Cases (don't use)
 Get data from COVID Act Now API: https://apidocs.covidactnow.org/api
 COVID Act Now, API key: f21877deb3c9401399d1584884d175a8
 Data definitions available here: https://apidocs.covidactnow.org/data-definitions
 
+
 ## All state timeseries and US time series data
 ```{r}
+# NEW and CUMULATIVE Case data
+# from CovidActNow
 #dat <- read.csv("covidactnow.states.timeseries.csv")
 # states_timeseries <- read.csv("https://api.covidactnow.org/v2/states.timeseries.csv?apiKey=f21877deb3c9401399d1584884d175a8")
-
 us_timeseries <- read.csv("https://api.covidactnow.org/v2/country/US.timeseries.csv?apiKey=f21877deb3c9401399d1584884d175a8")
+
+# Download alternative data: https://covidtracking.com/data
+#allstates_rollingavg <- read.csv("all-states-history_covidtrackingproject.csv")
 ```
-
-Download alternative data: https://covidtracking.com/data
-```{r}
-allstates_rollingavg <- read.csv("all-states-history_covidtrackingproject.csv")
-```
-
-
-### US Time Series Data
-ACTIVE CASES
-```{r}
-read.csv(file=“https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv”, header=T, sep=“,”)
-COUNTRY_DATA$date <- (as.Date(COUNTRY_DATA$date, “%Y-%m-%d”))
-```
-
 
 ```{r}
 # remove unnecessary columns
@@ -342,21 +411,36 @@ us_ts$date <- as.Date(us_ts$date)
 us_ts <- us_ts %>%
    # dplyr::arrange(desc(state)) %>% 
     #dplyr::group_by(state) %>% 
-    dplyr::mutate(cases_03da = zoo::rollmean(actuals.newCases, k = 3, fill = NA),
-                  cases_05da = zoo::rollmean(actuals.newCases, k = 5, fill = NA),
-                  cases_07da = zoo::rollmean(actuals.newCases, k = 7, fill = NA),
-                  cases_15da = zoo::rollmean(actuals.newCases, k = 15, fill = NA),
-                  cases_21da = zoo::rollmean(actuals.newCases, k = 21, fill = NA), 
-                  cases_07da_sd = zoo::rollapply(cases_07da, width=7, 
-                                                 FUN=function(x) sd(x, na.rm=FALSE), 
-                                                 by =1, fill=NA), 
-                  metrics.caseDensity_sd = zoo::rollapply(metrics.caseDensity,
-                                                          width=7, 
-                                                          FUN=function(x) sd(x, na.rm=FALSE),
-                                                          by=1, fill=NA), 
-                 year = factor(as.numeric(format(date, format = "%Y"))),
-                 month = factor(as.numeric(format(date, format = "%m"))),
-                 day = as.numeric(format(date, format = "%d"))) 
+  dplyr::mutate(activecases=zoo::rollapply(actuals.newCases, 
+                                           width=14, 
+                                           FUN=function(x) sum(x, na.rm=FALSE), 
+                                           align="right", fill=NA),
+                activecases_7davg=zoo::rollapply(activecases,
+                                                        width=7, 
+                                                        FUN=function(x) mean(x, na.rm=FALSE),
+                                                        align="right", fill=NA), 
+                activecases_sd=zoo::rollapply(activecases_7davg,
+                                                        width=7, 
+                                                        FUN=function(x) sd(x, na.rm=FALSE),
+                                                        align="right", fill=NA), 
+                activecases_coefvar = activecases_sd/activecases_7davg,
+                cases_03da = zoo::rollmean(actuals.newCases, k = 3, fill = NA),
+                cases_05da = zoo::rollmean(actuals.newCases, k = 5, fill = NA),
+                cases_07da = zoo::rollmean(actuals.newCases, k = 7, fill = NA),
+                cases_15da = zoo::rollmean(actuals.newCases, k = 15, fill = NA),
+                cases_21da = zoo::rollmean(actuals.newCases, k = 21, fill = NA), 
+                cases_07da_sd = zoo::rollapply(cases_07da, width=7, 
+                                               FUN=function(x) sd(x, na.rm=FALSE), 
+                                               by =1, fill=NA), 
+                metrics.caseDensity_sd = zoo::rollapply(metrics.caseDensity,
+                                                        width=7, 
+                                                        FUN=function(x) sd(x, na.rm=FALSE),
+                                                        align="right", fill=NA), 
+                metrics.caseDensity_coefvar = metrics.caseDensity_sd/metrics.caseDensity,
+                # coefficient of variation, rolling seven day
+                year = factor(as.numeric(format(date, format = "%Y"))),
+                month = factor(as.numeric(format(date, format = "%m"))),
+                day = as.numeric(format(date, format = "%d"))) 
 #%>% dplyr::ungroup()
 
 #t <- us_timeseries[is.na(us_timeseries$cases_07da),]
@@ -382,12 +466,20 @@ ggplot(us_ts, aes(x=metrics.caseDensity, y=metrics.caseDensity_sd))+
 
 We observe that the higher the prevalence, the higher the sd. So variance is heteroscedastic. We want a model that reflects this. 
 
-Better to use number of ACTIVE cases rather than number of new cases
-
-model coefficient of variation (sd / mean): linear? fit distribution that matches these properties
-don't take entire time series; generate coefficient of variation per week 
 look at distribution of coefficient of variation as function of prevalence
 If coefficient of variation is roughly linear, find distribution that roughly fits this criteria
+```{r}
+ggplot(us_ts, aes(x=metrics.caseDensity, y=metrics.caseDensity_coefvar))+
+  geom_point(aes(color=month, shape = year)) +
+  xlab("Cases per 100,000 (7-Day Rolling Avg.)")+
+  ylab("Coefficient of Variation, 7-Day Rolling Avg.")
+
+ggplot(us_ts, aes(x=activecases_7davg, y=activecases_coefvar))+
+  geom_point(aes(color=month, shape = year)) +
+  xlab("Active Cases (7-Day Rolling Avg.)")+
+  ylab("Coefficient of Variation, 7-Day Rolling Avg.")
+```
+
 
 Fit distributions to the real data 
 ```{r}
