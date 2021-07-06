@@ -1,6 +1,6 @@
 ---
-title: "Working with Real Tau Data"
-output: pdf_document
+title: "Prior Distributions for Tau and PI"
+output: html_document
 ---
 
 ```{r message=FALSE, warning=FALSE}
@@ -10,12 +10,18 @@ library(zoo)
 library(dplyr)
 library(ggplot2)
 library(fitdistrplus)
+library(ggpubr)
 ```
 
-# Tau 
+```{r}
+path.out.figures <- "1_Figures" # Change to where to write output files to
+```
 
-Secondary attack (infection) rate: https://www.cdc.gov/csels/dsepd/ss1978/lesson3/section2.html
+# Network Transmission- Tau 
 
+We want to estimate a prior distribution for the Secondary attack (infection) rate: https://www.cdc.gov/csels/dsepd/ss1978/lesson3/section2.html
+
+We have two datasets- provided by Lewis et al. 202 and Jing et al. 2020 - that we can use to estimate a prior distribtion for tau. 
 ```{r}
 path.in <- "5_SAR datasets" # Specify folder locatin of inputs
 Lewis2020 <- read.csv(file.path(path.in, "Lewis2020.csv"))
@@ -101,8 +107,6 @@ Jing_SAR <- Jing2020_house2 %>%
 mean(Jing_SAR$SAR)
 # SAR = number new cases among contacts / total number of contacts
 ```
-#? 
-in the paper says that SAR was calculated as the number of secondary cases divided by the sum of secondary cases and non-cases
 
 ## Fit distribution to data 
 Merge into one SAR dataset
@@ -134,8 +138,15 @@ hist(all_SAR$secondary, breaks=30)
 
 hist(all_SAR$num_contacts, breaks=30)
 
-ggplot(all_SAR, aes(x=num_contacts)) + 
-  geom_histogram()
+taudat_hist1 <- ggplot(all_SAR, aes(x=num_contacts)) + 
+  geom_histogram() + ggtitle("Number of Contacts") + theme_bw()
+
+tau_dat_hist2 <- ggplot(all_SAR, aes(x=secondary)) + 
+  geom_histogram() + ggtitle("Number Secondary Infections") + theme_bw()
+
+pdf(file.path(path.out.figures, "taudat_hists.pdf"), width =8, height =5)
+ggarrange(taudat_hist1, tau_dat_hist2)
+dev.off()
 ```
 ```{r}
 sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
@@ -181,6 +192,18 @@ Rather than using EM, we can reparameterize the problem and then have closed for
 
 Use this method: 
 https://en.wikipedia.org/wiki/Beta-binomial_distribution#Further_Bayesian_considerations
+
+We reparameterize the distrbiution so that the expected mean of the prior is a single parameter: 
+$$
+Beta(M \mu, M(1-\mu))
+$$
+where
+$$
+\mu = \frac{\alpha}{\alpha + \beta} \\
+
+M = \alpha + \beta
+$$
+
 Let $k_i$ be the number of successes out of $n_i$ trials for event $i$: 
 $$
 k_i \sim Bin(n_i, \theta_i) \\
@@ -189,8 +212,16 @@ $$
 
 To find the point estimates of $\mu$ and $M$ we use the sample: 
 $$
-
+\hat{\mu} = \frac{\sum_{i=1}^N k_i}{\sum_{i=1}^N n_i} \\
+s^2 = \frac{1}{N}\sum_{i=1}^N var \left(\frac{k_i}{n_1} \right) \\
+\hat{M}  = \frac{\hat{\mu}(1-\hat{\mu})-s^2}{s^2 - \frac{\hat{\mu}(1-\hat{\mu}}{N} \sum_{i=1}^N \frac{1}{n_i}}
 $$
+
+
+Once we have the point estimates for the underlying distribution, we use them to find a point estimate of $\hat{\theta_i}$, the probability of success for event $i$: 
+$$
+\hat{\theta_i} = \frac{k_i + \hat{M}\hat{\mu}}{n_i + \hat{M}}
+$$ 
 
 ```{r}
 N <- nrow(all_SAR)
@@ -201,22 +232,30 @@ mu = sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
 s2 = N *  sum(all_SAR$num_contacts * (hat_theta -mu)^2)/((N-1) * sum(all_SAR$num_contacts))
 M_hat = (mu * (1-mu) -s2)/(s2 - mu * (1-mu)/N * sum(1/all_SAR$num_contacts))
 
+print(paste("M_hat=", M_hat, "mu=", mu))
+
+alpha <- M_hat*mu
+beta <- M_hat*(1-mu)
+print(paste("alpha=", alpha, "beta=", beta))
+
 # point estimate for the posterior (probability of success for event i)
 theta_i <- (all_SAR$secondary + M_hat*mu)/(all_SAR$num_contacts + M_hat)
 all_SAR$theta_i <- theta_i
 
-hist(theta_i)
-hist(all_SAR$SAR, alpha=0.5,add=TRUE, col="green")
 
-ggplot(all_SAR)+
-  geom_histogram(aes(x=theta_i), alpha=0.3, fill="red", position="dodge")+
-  geom_histogram(aes(x=SAR), alpha=0.3, fill="green", position="dodge")
-
-hist(dbinom(x=all_SAR$secondary, size=all_SAR$num_contacts, prob=theta_i), 
-     breaks = 20)
 ```
 
-Simulate number of infections using fited distribution, compare to observed
+```{r}
+p <- seq(0,1,length=100)
+pdf(file.path(path.out.figures, "beta_dist.pdf"), width =8, height =5)
+plot(p, dbeta(p, alpha, beta), ylab="density", type ="l", col=7)
+legend(0.5,5, c("Be(alpha=0.70, beta=2.80)"),
+       lty=c(1,1,1,1),col=c(7,6,5,4,3,2,1))
+dev.off()
+```
+
+
+Simulate number of infections using fitted distribution, compare to observed
 ```{r}
 B <- 1000
 mock <- sapply(1:B, function(b){
@@ -230,10 +269,57 @@ hist(mock)
 sim_dist <- lapply(all_SAR$num_contacts, function(x){rbinom(100,x,all_SAR$theta_i)})
 sim_dist <- data.frame(x=unlist(sim_dist))
 
+pdf(file.path(path.out.figures, "fitted_tau_dist.pdf"), width =8, height =5)
 ggplot()+
   geom_density(data=sim_dist, aes(x=x), alpha=0.3, fill="red")+
   geom_density(data=all_SAR, aes(x=secondary), alpha=0.3, fill="green")+
   ggtitle("Simulated Secondary Cases vs. Observed")
+dev.off()
+
+p <- seq(0,1,length=100)
+plot(p, dbeta(p, alpha, beta), ylab="density", type ="l", col=7)
+lines(p, dbeta(p, 0.1*alpha, 0.1*beta), type ="l", col=6)
+lines(p, dbeta(p, 0.2*alpha, 0.2*beta), col=5) 
+lines(p, dbeta(p, 0.3*alpha, 0.3*beta), col=4) 
+lines(p, dbeta(p, 0.4*alpha, 0.4*beta), col=3) 
+lines(p, dbeta(p, 0.5*alpha, 0.5*beta), col=2) 
+lines(p, dbeta(p, 0.6*alpha, 0.6*beta), col=1) 
+legend(0.7,6, c("Be(alpha, beta)","Be(.1a, .1b)",
+                "Be(.2a,.2b)",  "Be(.3a, .3b)",
+                "Be(.4a,.4b)",  "Be(.5a, .5b)", 
+                "Be(.6a, .6b)"),
+       lty=c(1,1,1,1),col=c(7,6,5,4,3,2,1))
+
+p <- seq(0,1,length=100)
+plot(p, dbeta(p, alpha, beta), ylab="density", type ="l", col=7)
+lines(p, dbeta(p, 0.1*alpha, 0.1*beta), type ="l", col=6)
+lines(p, dbeta(p, 0.2*alpha, 0.2*beta), col=5) 
+lines(p, dbeta(p, 0.3*alpha, 0.3*beta), col=4) 
+lines(p, dbeta(p, 0.4*alpha, 0.4*beta), col=3) 
+lines(p, dbeta(p, 0.5*alpha, 0.5*beta), col=2) 
+lines(p, dbeta(p, 0.6*alpha, 0.6*beta), col=1) 
+legend(0.7,6, c("Be(alpha, beta)","Be(.1a, .1b)",
+                "Be(.2a,.2b)",  "Be(.3a, .3b)",
+                "Be(.4a,.4b)",  "Be(.5a, .5b)", 
+                "Be(.6a, .6b)"),
+       lty=c(1,1,1,1),col=c(7,6,5,4,3,2,1))
+
+tauinv <- 1/c(.1,.2,.3,.4,.5,.6)
+
+p <- seq(0,1,length=100)
+plot(p, dbeta(p, alpha, beta), ylab="density", type ="l", col=7)
+lines(p, dbeta(p, 0.9*alpha, 0.9*beta), type ="l", col=6)
+lines(p, dbeta(p, 0.8*alpha, 0.8*beta), col=5) 
+lines(p, dbeta(p, 0.7*alpha, 0.7*beta), col=4) 
+lines(p, dbeta(p, 0.6*alpha, 0.6*beta), col=3) 
+lines(p, dbeta(p, 0.5*alpha, 0.5*beta), col=2) 
+lines(p, dbeta(p, 0.4*alpha, 0.4*beta), col=1) 
+legend(0.6,6, c("Be(alpha, beta)","tau=.1, Be(.9a, .9b)",
+                "tau=.2, Be(.8a,.8b)",  "tau=.3, Be(.7a, .7b)",
+                "tau=.4, Be(.6a,.6b)",  "tau=.5, Be(.5a, .5b)", 
+                "tau=.6, Be(.4a, .4b)"),
+       lty=c(1,1,1,1),col=c(7,6,5,4,3,2,1))
+
 
 ```
 TODO: need to access goodness of fit. CPO and PPO for Bayesian Goodness of Fit
@@ -280,6 +366,8 @@ likelihood2 <- sapply(1:B, function(b){
   })
   return( c(sum(vvv - uuu)))
 })
+
+hist(likelihood)
 ```
 
 
@@ -306,49 +394,90 @@ The beta distribution is the conjugate prior probability distribution to the bin
 may need: Bayesian updates (observing something sampled from binomial dist; want hyper parameters)
 each tau is a RV sampled from beta, want to estimate alpha and beta
 write down update from likelihood formula
+
 ```{r}
-# Fit distribution
-# Plot distribution and skew/kurtosis of standard deviation of the case density
-plotdist(Lewis_SAR$SAR, histo = TRUE, demp = TRUE, breaks=18)
-descdist(Lewis_SAR$SAR, boot = 1000)
+library(tidyverse)
+source("beta_params.R")
+sar_dat <- read.csv(file.path(path.in, "SAR_95CI_sc_collected.csv"))
+sar_dat$alpha <- numeric(nrow(sar_dat)) 
+sar_dat$beta <- numeric(nrow(sar_dat))
 
-# Fit distributions
-fw <- fitdist(Lewis_SAR$SAR, "weibull")
-fno <- fitdist(Lewis_SAR$SAR, "norm")
-fg <- fitdist(Lewis_SAR$SAR, "gamma")
-fln <- fitdist(Lewis_SAR$SAR, "lnorm")
+for (i in 1:nrow(sar_dat)){
+  q <- c(sar_dat[i, "X95CI_lw"], sar_dat[i, "X95CI_up"])
+  q[1] <- ifelse(q[1]==0, q[1]+0.0001, q[1]) # lower bound can't be exactly zero
+  beta <- beta.parms.from.quantiles(q=q)
+  sar_dat[i,"alpha"] <- beta$a
+  sar_dat[i, "beta"] <- beta$b
+}
 
-# Plot fit distributions and generate goodness-of-fit statistics
-par(mfrow = c(2, 2))
-plot.legend <- c("weibull","normal","gamma", "lnorm")
-denscomp(list(fw,fno,fg,fln), legendtext = plot.legend)
-qqcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
-cdfcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
-ppcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
-gofstat(list(fw,fno,fg,fln))
+# add alpha and beta that we calculated from Jing and Lewis data
+# "alpha= 0.696031266386682 beta= 2.80459657338163"
+sar_dat[nrow(sar_dat)+1,] <- c("LewisJing_2020", "Household", "NA", "NA", "NA", "sc_calculated",
+                               0.696, 2.805)
+sar_dat$alpha <- as.numeric(sar_dat$alpha)
+sar_dat$beta <- as.numeric(sar_dat$beta)
+# generate the beta distributions with different parameters
+set.seed(123) # reproducible
+p <- seq(0, 1, .01)
+beta_dist <- matrix(nrow = length(p), ncol = nrow(sar_dat)+1)
+beta_dist[,1] <- p
+for(i in 1:nrow(sar_dat)){
+  beta_dist[,(i+1)] <- dbeta(p, sar_dat[i, "alpha"], sar_dat[i, "beta"])
+}
+beta_dist <- data.frame(beta_dist)
+beta_dist_long <- gather(beta_dist, p, dens, X2:X11, factor_key = TRUE)
 
-## Beta distribution
-# rescale data in interval [0,1] to fit beta distribution
-# density_sd_dat_scaled <- density_sd_dat/10 
-# # scaling by max(density_sd_dat) leads to fitdit() failing; 10 chosen somewhat aribitrarily
-# fit all the distributions on the scaled data so that the results are comparable
-# fb <- fitdistrplus::fitdist(density_sd_dat_scaled, "beta")
-# fw <- fitdist(density_sd_dat_scaled, "weibull")
-# fno <- fitdist(density_sd_dat_scaled, "norm")
-# fg <- fitdist(density_sd_dat_scaled, "gamma")
-# fln <- fitdist(density_sd_dat_scaled, "lnorm")
-
-# par(mfrow = c(2, 2))
-# plot.legend <- c("weibull","normal","gamma", "lnorm", "beta)
-# denscomp(list(fw,fno,fg,fln, fb), legendtext = plot.legend,xlim=c(0,50))
-# qqcomp(list(fw,fno,fg,fln, fb), legendtext = plot.legend)
-# cdfcomp(list(fw,fno,fg,fln, fb), legendtext = plot.legend)
-# ppcomp(list(fw,fno,fg,fln, fb), legendtext = plot.legend)
-# gofstat(list(fw,fno,fg,fln, fb))
-
-## beta ends up being very similar to the other distributions and does not perform any better
-## so lets go back to the unscaled data  (as above)
+ggplot(beta_dist_long, aes(x=X1, y = dens, group = p))+
+  geom_line(aes(color = p))
 ```
+```{r}
+## Household
+# Curmei et al 2020
+q_house <- c(0.0001, .67)
+beta_house <- beta.parms.from.quantiles(q=q_house)
+
+# Wu et al. 2020
+# household: 22.4%-44.4%
+q_house1 <- c(.224, .444)
+beta_house1 <- beta.parms.from.quantiles(q=q_house1)
+
+## Restaurant / Meal (Koh et al 2020 meta analysis)
+# Wu J, Huang Y, Tu C, Bi C, Chen Z, Luo L, et al. Household Transmission of SARS-CoV-2, Zhuhai, China, 2020. Clin Infect Dis. 2020.
+# Shared meal: SIR 95% CI: 38.8(26.8-52.4)
+q_meal <- c(.268, .524)
+beta_meal <- beta.parms.from.quantiles(q=q_meal)
+
+# Bi Q, Wu Y, Mei S, Ye C, Zou X, Zhang Z, et al. Epidemiology and transmission of COVID-19 in 391 cases and 1286 of their close contacts in Shenzhen, China: a retrospective cohort study. Lancet Infect Dis. 2020.
+# shared meal: 8·6% (6·8–10·9)
+q_meal2 <- c(.068, .109)
+beta_meal2 <- beta.parms.from.quantiles(q=q_meal2)
+
+
+## Travel
+# Wu et al. 2020
+# travel (shared car): 46.6(31.2-62.6)
+q_travel <- c(0.312, 0.626)
+beta_travel <- beta.parms.from.quantiles(q=q_travel)
+
+# Bi et al 2020
+# travel: 5·7% (3·6–8·8)
+q_travel2 <- c(0.036, 0.088)
+beta_travel2 <- beta.parms.from.quantiles(q=q_travel2)
+
+p <- seq(0,1,length=100)
+plot(p, dbeta(p, beta_meal$a, beta_meal$b), ylab="density", type ="l", col=7)
+lines(p, dbeta(p, beta_house$a, beta_house$b), type ="l", col=6)
+lines(p, dbeta(p, beta_meal2$a, beta_meal2$b), col=5) 
+lines(p, dbeta(p, beta_travel$a, beta_travel$b), col=4) 
+lines(p, dbeta(p, beta_travel2$a, beta_travel2$b), col=3) 
+lines(p, dbeta(p, beta_house1$a, beta_house1$b), col=2) 
+
+legend(0.6,6, c("Meal: Be(21, 33)", "House: Be(.45, 2.38", 
+                "Meal2: Be(64, 663)", "Travel: Be(17, 20)", 
+                "Travel2: Be(19, 294)", "House1: Be(23, 46"),
+       lty=c(1,1,1,1),col=c(7,6,5,4, 3))
+```
+
 
 ----------------------------------------------------------------------------
 
@@ -365,7 +494,7 @@ If coefficient of variation is roughly linear, find distribution that roughly fi
 We actually want active cases, not new daily cases
 ```{r}
 COUNTRY_DATA <- read.csv(file="https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv", header=T, sep=",")
-
+# https://github.com/owid/covid-19-data/blob/master/public/data/owid-covid-codebook.csv
 COUNTRY_DATA$date <- (as.Date(COUNTRY_DATA$date, "%Y-%m-%d"))
 
 US_DATA <- COUNTRY_DATA %>% filter(location == "United States")
@@ -375,6 +504,62 @@ US_DATA <- COUNTRY_DATA %>% filter(location == "United States")
 plot coefficient of variation of new_cases_smoothed 
 want to know: how much does variance change as a function of prevalence?
 modeling uncertainty based on data
+```{r}
+country_new <- COUNTRY_DATA %>%
+   # dplyr::arrange(desc(state)) %>% 
+    #dplyr::group_by(state) %>% 
+  dplyr::mutate(activecases=zoo::rollapply(new_cases_smoothed_per_million, 
+                                           width=14, 
+                                           FUN=function(x) sum(x, na.rm=FALSE), 
+                                           align="right", fill=NA),
+                activecases_sd=zoo::rollapply(activecases,
+                                                        width=7, 
+                                                        FUN=function(x) sd(x, na.rm=FALSE),
+                                                        align="right", fill=NA), 
+                activecases_coefvar = activecases_sd/activecases,
+                year = factor(as.numeric(format(date, format = "%Y"))),
+                month = factor(as.numeric(format(date, format = "%m"))),
+                day = as.numeric(format(date, format = "%d"))
+                ) 
+
+# data cleaning
+## remove countries that have negative values for the coefficient of variation
+bad <- country_new %>% filter(activecases_coefvar < 0) %>% dplyr::select(location) %>% unique()
+bad_index <- country_new$location %in% bad$location
+country_clean <- country_new[!bad_index,]
+
+pi_dist1 <- ggplot(country_clean %>% filter(activecases_coefvar < 5 & location == "United States"), aes(x=activecases, y=activecases_coefvar))+
+  geom_point(aes(color=month, shape = year)) +
+  xlab("Active Cases (7-Day Rolling Avg.)")+
+  ylab("Coefficient of Variation, 7-Day Rolling Avg.")+
+  ggtitle("United States")
+
+pi_dist2 <- ggplot(country_clean %>% filter(activecases_coefvar < 5 & year==2021 & location == "United States"), aes(x=activecases, y=activecases_coefvar))+
+  geom_point(aes(color=month, shape = year)) +
+  xlab("Active Cases (7-Day Rolling Avg.)")+
+  ylab("Coefficient of Variation, 7-Day Rolling Avg.")+
+  ggtitle("United States")
+
+pi_dist3 <- ggplot(country_clean %>% filter(activecases_coefvar < 5 & year == 2021), aes(x=activecases, y=activecases_coefvar))+
+  geom_point(aes(color=month, shape = year)) +
+  xlab("Active Cases (7-Day Rolling Avg.)")+
+  ylab("Coefficient of Variation, 7-Day Rolling Avg.")+
+  ggtitle("Global")
+
+pdf(file.path(path.out.figures, "coefvariation_global.pdf"), width =8, height =5)
+pi_dist3
+dev.off()
+
+pdf(file.path(path.out.figures, "coefvariation_US.pdf"), width =8, height =5)
+pi_dist1
+pi_dist2
+dev.off()
+
+```
+
+
+
+
 
 ## New Cases (don't use)
 Get data from COVID Act Now API: https://apidocs.covidactnow.org/api

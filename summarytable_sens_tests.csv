@@ -1,0 +1,865 @@
+"","type","pool_size","prev","tau","prev_labels","tau_labels","mean_sens","sens_pct_change","mean_tests","test_pct_change"
+"1","All Graph Effect",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.854961925,0.516929862276274,0.206576784,79.3423216
+"2","All Graph Effect",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.855540789,0.525975355096502,0.216500314,78.3499686
+"3","All Graph Effect",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.855776295,0.530601420600888,0.21981222,78.018778
+"4","All Graph Effect",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.857554504,0.518891134351862,0.254281112,74.5718888
+"5","All Graph Effect",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.862404938,0.50787864675494,0.339540857,66.0459143
+"6","All Graph Effect",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.866935501,0.502142466299718,0.412254002,58.7745998
+"7","All Graph Effect",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.860231771,1.13649983992996,0.206556297,79.3443703
+"8","All Graph Effect",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.860771396,1.14057126581724,0.216306386,78.3693614
+"9","All Graph Effect",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.860916656,1.13445500461376,0.219768502,78.0231498
+"10","All Graph Effect",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.862680792,1.11977280775199,0.253453548,74.6546452
+"11","All Graph Effect",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.867290812,1.07729657264736,0.337557017,66.2442983
+"12","All Graph Effect",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.871576433,1.04015666516732,0.409049295,59.0950705
+"13","All Graph Effect",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.897511675,5.51945700570127,0.206783235,79.3216765
+"14","All Graph Effect",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.89780356,5.49184762046208,0.216899241,78.3100759
+"15","All Graph Effect",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.89801514,5.49252489986897,0.220300443,77.9699557
+"16","All Graph Effect",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.899282358,5.41005268027283,0.255667914,74.4332086
+"17","All Graph Effect",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.902831517,5.21934250462475,0.343054875,65.6945125
+"18","All Graph Effect",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.906127892,5.04563994602389,0.417102722,58.2897278
+"19","All Graph Effect",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.916141922,7.70979458244878,0.206938501,79.3061499
+"20","All Graph Effect",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.916447357,7.68249230023015,0.217167457,78.2832543
+"21","All Graph Effect",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.916562137,7.67129612063067,0.22075642,77.924358
+"22","All Graph Effect",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.917675024,7.56596275094572,0.256609443,74.3390557
+"23","All Graph Effect",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.920619795,7.29245457504606,0.345384678,65.4615322
+"24","All Graph Effect",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.923345876,7.04168726321695,0.420444543,57.9555457
+"25","All Graph Effect",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.959451445,12.8016473988881,0.207217808,79.2782192
+"26","All Graph Effect",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.959792729,12.775570097868,0.218061393,78.1938607
+"27","All Graph Effect",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.959664368,12.7346441361301,0.221604444,77.8395556
+"28","All Graph Effect",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.960420066,12.5763547473608,0.259420978,74.0579022
+"29","All Graph Effect",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.961913193,12.1049407427634,0.352303005,64.7696995
+"30","All Graph Effect",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.963292296,11.6725978548673,0.430569712,56.9430288
+"31","All Graph Effect",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.788883363,3.61789775880359,0.0740013354,92.59986646
+"32","All Graph Effect",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.792604304,3.64047333338302,0.1092425592,89.07574408
+"33","All Graph Effect",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.794115744,3.65722809803134,0.1208629307,87.91370693
+"34","All Graph Effect",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.805496462,3.43119066965666,0.23475096,76.524904
+"35","All Graph Effect",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.835109561,2.96917495028227,0.469194325,53.0805675
+"36","All Graph Effect",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.860414881,2.55142691096463,0.622597186,37.7402814
+"37","All Graph Effect",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.820433346,7.76191076010958,0.0747045796,92.52954204
+"38","All Graph Effect",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.823681878,7.70415865928713,0.110380444,88.9619556
+"39","All Graph Effect",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.824581293,7.63394608364624,0.1229385862,87.70614138
+"40","All Graph Effect",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.835033339,7.22392533814636,0.23765351,76.234649
+"41","All Graph Effect",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.860986251,6.15977597340267,0.475267956,52.4732044
+"42","All Graph Effect",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.882859001,5.22650446086225,0.629326259,37.0673741
+"43","All Graph Effect",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.948370104,24.5660906069557,0.0782844044,92.17155956
+"44","All Graph Effect",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.949204534,24.117427444544,0.1191178769,88.08821231
+"45","All Graph Effect",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.949758777,23.9735679961488,0.1327262646,86.72737354
+"46","All Graph Effect",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.953215991,22.3993767392696,0.263739959,73.6260041
+"47","All Graph Effect",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.96198817,18.6133326724443,0.523992388,47.6007612
+"48","All Graph Effect",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.969101044,15.5055509588583,0.684194331,31.5805669
+"49","All Graph Effect",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.979735027,28.6857964304727,0.0793101102,92.06898898
+"50","All Graph Effect",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.980145301,28.1632239674681,0.1210136196,87.89863804
+"51","All Graph Effect",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.980296046,27.9596477107753,0.135598042,86.4401958
+"52","All Graph Effect",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.981746923,26.0629412698299,0.269525997,73.0474003
+"53","All Graph Effect",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.985238057,21.48004836327,0.534163738,46.5836262
+"54","All Graph Effect",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.988022177,17.7607295137282,0.694876025,30.5123975
+"55","All Graph Effect",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.998642825,31.1692893926739,0.0796752256,92.03247744
+"56","All Graph Effect",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.998685296,30.5875028260378,0.1226123808,87.73876192
+"57","All Graph Effect",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.998681027,30.3594693784527,0.136697321,86.3302679
+"58","All Graph Effect",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.998794857,28.2520112350779,0.273893688,72.6106312
+"59","All Graph Effect",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.999029247,23.1805048329362,0.541784587,45.8215413
+"60","All Graph Effect",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.999214866,19.094767607754,0.703040781,29.6959219
+"61","Fixed",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.8558063,0.616202099051567,0.2064522,79.35478
+"62","Fixed",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.8562911,0.614136838528308,0.2158179,78.41821
+"63","Fixed",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.8564806,0.613338235872855,0.2194544,78.05456
+"64","Fixed",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.8582947,0.605653760861348,0.253655,74.6345
+"65","Fixed",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.8630708,0.58548068048946,0.3385077,66.14923
+"66","Fixed",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.8674936,0.566841795308153,0.4108437,58.91563
+"67","Fixed",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.8604758,1.16519006011416,0.2064874,79.35126
+"68","Fixed",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.8609476,1.1612752219456,0.2159039,78.40961
+"69","Fixed",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.861132,1.15975210849336,0.2195601,78.04399
+"70","Fixed",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.8628973,1.14515095454056,0.2539427,74.60573
+"71","Fixed",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.8675441,1.10681569811262,0.3392256,66.07744
+"72","Fixed",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.8718462,1.07143022754357,0.4119016,58.80984
+"73","Fixed",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.8989945,5.69379110429056,0.2067779,79.32221
+"74","Fixed",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.8993529,5.67389494849038,0.2166133,78.33867
+"75","Fixed",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.8994929,5.66612178777448,0.2204314,77.95686
+"76","Fixed",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.900833,5.5918123394657,0.2563142,74.36858
+"77","Fixed",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.9043552,5.39691818782443,0.3451331,65.48669
+"78","Fixed",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.9076094,5.21738828013781,0.4205939,57.94061
+"79","Fixed",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.9166927,7.7745489439903,0.2069113,79.30887
+"80","Fixed",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.9169951,7.74685205960911,0.2169392,78.30608
+"81","Fixed",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.9171132,7.73603113974059,0.2208316,77.91684
+"82","Fixed",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.9182435,7.63259708950957,0.2574026,74.25974
+"83","Fixed",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.9212122,7.36149565682351,0.3478384,65.21616
+"84","Fixed",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.9239523,7.11198881526169,0.424566,57.5434
+"85","Fixed",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.9612803,13.0166638626485,0.2072474,79.27526
+"86","Fixed",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.9614292,12.9678553115369,0.2177601,78.22399
+"87","Fixed",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.9614873,12.9487894114545,0.2218396,77.81604
+"88","Fixed",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.9620434,12.7666350535799,0.2601407,73.98593
+"89","Fixed",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.9635012,12.2900129841357,0.354625,64.5375
+"90","Fixed",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.9648432,11.8523911319679,0.4345045,56.54955
+"91","Fixed",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.7953101,4.46203392470817,0.07371466,92.628534
+"92","Fixed",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.7984395,4.40348013561842,0.1073822,89.26178
+"93","Fixed",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.7996579,4.380654793683,0.1202167,87.97833
+"94","Fixed",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.8111986,4.16338373384258,0.234603,76.5397
+"95","Fixed",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.840287,3.60755420862418,0.4728924,52.71076
+"96","Fixed",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.8651978,3.12149511768777,0.6311537,36.88463
+"97","Fixed",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.8223723,8.01658761952133,0.07452161,92.547839
+"98","Fixed",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.8252193,7.90519105715454,0.1093068,89.06932
+"99","Fixed",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.826327,7.86181607622421,0.1225585,87.74415
+"100","Fixed",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.8367957,7.45022440365333,0.2404281,75.95719
+"101","Fixed",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.8629949,6.40744279456448,0.4843207,51.56793
+"102","Fixed",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.885212,5.5069545208259,0.6445973,35.54027
+"103","Fixed",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.9561547,25.5885782271207,0.07851075,92.148925
+"104","Fixed",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.9570116,25.1382748099968,0.1187784,88.12216
+"105","Fixed",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.9573439,24.9636665188178,0.1340629,86.59371
+"106","Fixed",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.9604547,23.3288759066801,0.268569,73.1431
+"107","Fixed",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.9680006,19.3546664871416,0.537167,46.2833
+"108","Fixed",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.9741253,16.1043837235441,0.7043204,29.56796
+"109","Fixed",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.9809511,28.8455246408662,0.07925013,92.074987
+"110","Fixed",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.981336,28.3189190694689,0.1205266,87.94734
+"111","Fixed",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.9814852,28.1148699291396,0.1361827,86.38173
+"112","Fixed",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.9828793,26.2083461312071,0.2736721,72.63279
+"113","Fixed",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.9862422,21.6038593948648,0.5463475,45.36525
+"114","Fixed",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.9889503,17.8713509593828,0.7142783,28.57217
+"115","Fixed",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.999221,31.2452312629763,0.07979491,92.020509
+"116","Fixed",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.9992372,30.6596694689716,0.1218131,87.81869
+"117","Fixed",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.9992435,30.4328898999579,0.137742,86.2258
+"118","Fixed",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.9993019,28.3171189837581,0.2774094,72.25906
+"119","Fixed",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.9994423,23.2314343499805,0.5529907,44.70093
+"120","Fixed",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.9995546,19.1352599414404,0.7214012,27.85988
+"121","Null Model (Fixed)",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.8505651,0,0.2064127,79.35873
+"122","Null Model (Fixed)",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.8510644,0,0.2157213,78.42787
+"123","Null Model (Fixed)",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.8512595,0,0.2193358,78.06642
+"124","Null Model (Fixed)",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.8531277,0,0.253332,74.6668
+"125","Null Model (Fixed)",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.8580471,0,0.3377015,66.22985
+"126","Null Model (Fixed)",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.862604,0,0.4096553,59.03447
+"127","Null Model (Fixed)",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.8505651,0,0.2064127,79.35873
+"128","Null Model (Fixed)",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.8510644,0,0.2157213,78.42787
+"129","Null Model (Fixed)",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.8512595,0,0.2193358,78.06642
+"130","Null Model (Fixed)",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.8531277,0,0.253332,74.6668
+"131","Null Model (Fixed)",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.8580471,0,0.3377015,66.22985
+"132","Null Model (Fixed)",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.862604,0,0.4096553,59.03447
+"133","Null Model (Fixed)",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.8505651,0,0.2064127,79.35873
+"134","Null Model (Fixed)",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.8510644,0,0.2157213,78.42787
+"135","Null Model (Fixed)",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.8512595,0,0.2193358,78.06642
+"136","Null Model (Fixed)",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.8531277,0,0.253332,74.6668
+"137","Null Model (Fixed)",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.8580471,0,0.3377015,66.22985
+"138","Null Model (Fixed)",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.862604,0,0.4096553,59.03447
+"139","Null Model (Fixed)",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.8505651,0,0.2064127,79.35873
+"140","Null Model (Fixed)",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.8510644,0,0.2157213,78.42787
+"141","Null Model (Fixed)",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.8512595,0,0.2193358,78.06642
+"142","Null Model (Fixed)",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.8531277,0,0.253332,74.6668
+"143","Null Model (Fixed)",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.8580471,0,0.3377015,66.22985
+"144","Null Model (Fixed)",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.862604,0,0.4096553,59.03447
+"145","Null Model (Fixed)",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.8505651,0,0.2064127,79.35873
+"146","Null Model (Fixed)",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.8510644,0,0.2157213,78.42787
+"147","Null Model (Fixed)",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.8512595,0,0.2193358,78.06642
+"148","Null Model (Fixed)",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.8531277,0,0.253332,74.6668
+"149","Null Model (Fixed)",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.8580471,0,0.3377015,66.22985
+"150","Null Model (Fixed)",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.862604,0,0.4096553,59.03447
+"151","Null Model (Fixed)",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.7613389,0,0.07270171,92.729829
+"152","Null Model (Fixed)",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.7647633,0,0.1049619,89.50381
+"153","Null Model (Fixed)",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.7660978,0,0.1172699,88.27301
+"154","Null Model (Fixed)",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.7787752,0,0.2272245,77.27755
+"155","Null Model (Fixed)",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.8110287,0,0.4581675,54.18325
+"156","Null Model (Fixed)",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.8390082,0,0.6135622,38.64378
+"157","Null Model (Fixed)",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.7613389,0,0.07270171,92.729829
+"158","Null Model (Fixed)",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.7647633,0,0.1049619,89.50381
+"159","Null Model (Fixed)",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.7660978,0,0.1172699,88.27301
+"160","Null Model (Fixed)",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.7787752,0,0.2272245,77.27755
+"161","Null Model (Fixed)",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.8110287,0,0.4581675,54.18325
+"162","Null Model (Fixed)",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.8390082,0,0.6135622,38.64378
+"163","Null Model (Fixed)",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.7613389,0,0.07270171,92.729829
+"164","Null Model (Fixed)",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.7647633,0,0.1049619,89.50381
+"165","Null Model (Fixed)",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.7660978,0,0.1172699,88.27301
+"166","Null Model (Fixed)",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.7787752,0,0.2272245,77.27755
+"167","Null Model (Fixed)",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.8110287,0,0.4581675,54.18325
+"168","Null Model (Fixed)",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.8390082,0,0.6135622,38.64378
+"169","Null Model (Fixed)",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.7613389,0,0.07270171,92.729829
+"170","Null Model (Fixed)",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.7647633,0,0.1049619,89.50381
+"171","Null Model (Fixed)",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.7660978,0,0.1172699,88.27301
+"172","Null Model (Fixed)",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.7787752,0,0.2272245,77.27755
+"173","Null Model (Fixed)",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.8110287,0,0.4581675,54.18325
+"174","Null Model (Fixed)",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.8390082,0,0.6135622,38.64378
+"175","Null Model (Fixed)",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.7613389,0,0.07270171,92.729829
+"176","Null Model (Fixed)",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.7647633,0,0.1049619,89.50381
+"177","Null Model (Fixed)",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.7660978,0,0.1172699,88.27301
+"178","Null Model (Fixed)",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.7787752,0,0.2272245,77.27755
+"179","Null Model (Fixed)",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.8110287,0,0.4581675,54.18325
+"180","Null Model (Fixed)",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.8390082,0,0.6135622,38.64378
+"181","Null Model (Pi Graph Effect)",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.850557694,-0.000870715245656338,0.206271238,79.3728762
+"182","Null Model (Pi Graph Effect)",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.851039448,-0.00293185803566428,0.215236775,78.4763225
+"183","Null Model (Pi Graph Effect)",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.851240104,-0.00227850614294394,0.218962721,78.1037279
+"184","Null Model (Pi Graph Effect)",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.853104188,-0.0027559766257805,0.252827937,74.7172063
+"185","Null Model (Pi Graph Effect)",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.857976362,-0.00824406958544625,0.336017593,66.3982407
+"186","Null Model (Pi Graph Effect)",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.862505084,-0.0114671390348299,0.406756471,59.3243529
+"187","Null Model (Pi Graph Effect)",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.850567875,0.000326253687108771,0.20646192,79.353808
+"188","Null Model (Pi Graph Effect)",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.851078911,0.00170504135761516,0.21596784,78.403216
+"189","Null Model (Pi Graph Effect)",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.851265374,0.000690036352025713,0.21943046,78.056954
+"190","Null Model (Pi Graph Effect)",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.853122469,-0.000613155568627059,0.253156673,74.6843327
+"191","Null Model (Pi Graph Effect)",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.858024941,-0.00258249226643975,0.336823341,66.3176659
+"192","Null Model (Pi Graph Effect)",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.862588405,-0.0018078979462227,0.408043063,59.1956937
+"193","Null Model (Pi Graph Effect)",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.850566547,0.000170122192886032,0.206436967,79.3563033
+"194","Null Model (Pi Graph Effect)",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.851077779,0.00157203144673659,0.215946552,78.4053448
+"195","Null Model (Pi Graph Effect)",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.851263295,0.000445810002711117,0.219391712,78.0608288
+"196","Null Model (Pi Graph Effect)",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.853126195,-0.000176409698110641,0.253221857,74.6778143
+"197","Null Model (Pi Graph Effect)",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.858034656,-0.00145027003762385,0.336973389,66.3026611
+"198","Null Model (Pi Graph Effect)",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.862605357,0.000157314364404073,0.408274664,59.1725336
+"199","Null Model (Pi Graph Effect)",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.850566474,0.000161539663454147,0.206435526,79.3564474
+"200","Null Model (Pi Graph Effect)",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.851091113,0.00313877539700879,0.216192828,78.3807172
+"201","Null Model (Pi Graph Effect)",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.851270717,0.00131769454556023,0.21952851,78.047149
+"202","Null Model (Pi Graph Effect)",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.853144535,0.00197332708807103,0.253547736,74.6452264
+"203","Null Model (Pi Graph Effect)",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.858082988,0.00418252098283357,0.337751921,66.2248079
+"204","Null Model (Pi Graph Effect)",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.862688743,0.00982409077629396,0.409499047,59.0500953
+"205","Null Model (Pi Graph Effect)",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.850568828,0.000438296845242786,0.206479596,79.3520404
+"206","Null Model (Pi Graph Effect)",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.851082443,0.00212005107956197,0.216032516,78.3967484
+"207","Null Model (Pi Graph Effect)",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.851269302,0.00115147026259363,0.219502521,78.0497479
+"208","Null Model (Pi Graph Effect)",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.853148537,0.00244242450456078,0.253619516,74.6380484
+"209","Null Model (Pi Graph Effect)",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.858093601,0.00541939947119827,0.337927225,66.2072775
+"210","Null Model (Pi Graph Effect)",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.862706852,0.0119234318412541,0.409776445,59.0223555
+"211","Null Model (Pi Graph Effect)",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.761287476,-0.00675441646289479,0.0721853737,92.78146263
+"212","Null Model (Pi Graph Effect)",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.764589039,-0.0227862660250648,0.1031023519,89.68976481
+"213","Null Model (Pi Graph Effect)",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.765962936,-0.0176040187036261,0.1158694184,88.41305816
+"214","Null Model (Pi Graph Effect)",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.778600193,-0.0224720818022902,0.224948773,77.5051227
+"215","Null Model (Pi Graph Effect)",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.810412603,-0.0759648826237707,0.450583845,54.9416155
+"216","Null Model (Pi Graph Effect)",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.837827397,-0.140737957030695,0.60054885,39.945115
+"217","Null Model (Pi Graph Effect)",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.76135743,0.00243387012012142,0.0728549826,92.71450174
+"218","Null Model (Pi Graph Effect)",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.764858958,0.0125081839047452,0.10559169,89.440831
+"219","Null Model (Pi Graph Effect)",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.766135757,0.0049545893487721,0.117456752,88.2543248
+"220","Null Model (Pi Graph Effect)",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.778723637,-0.00662103775261163,0.225973182,77.4026818
+"221","Null Model (Pi Graph Effect)",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.810725145,-0.0374283918682546,0.45255633,54.744367
+"222","Null Model (Pi Graph Effect)",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.838333534,-0.0804123249331759,0.603063015,39.6936985
+"223","Null Model (Pi Graph Effect)",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.761348293,0.00123374754658053,0.0727665772,92.72334228
+"224","Null Model (Pi Graph Effect)",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.764851159,0.0114883912447117,0.1055163849,89.44836151
+"225","Null Model (Pi Graph Effect)",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.766121498,0.00309333873559034,0.1173226679,88.26773321
+"226","Null Model (Pi Graph Effect)",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.77874841,-0.00344001709351483,0.226161042,77.3838958
+"227","Null Model (Pi Graph Effect)",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.810783716,-0.0302065759201936,0.452857225,54.7142775
+"228","Null Model (Pi Graph Effect)",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.838421944,-0.0698748832252118,0.603384172,39.6615828
+"229","Null Model (Pi Graph Effect)",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.761347774,0.00116557816761189,0.0727610654,92.72389346
+"230","Null Model (Pi Graph Effect)",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.76494226,0.0234007045055575,0.1063472072,89.36527928
+"231","Null Model (Pi Graph Effect)",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.766172167,0.00970724625497738,0.1177812814,88.22187186
+"232","Null Model (Pi Graph Effect)",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.77887139,0.0123514462196602,0.227144805,77.2855195
+"233","Null Model (Pi Graph Effect)",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.811086305,0.0071027079559528,0.45462838,54.537162
+"234","Null Model (Pi Graph Effect)",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.838897375,-0.0132090484932134,0.605512536,39.4487464
+"235","Null Model (Pi Graph Effect)",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.761363948,0.00328999345756751,0.072915533,92.7084467
+"236","Null Model (Pi Graph Effect)",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.764882997,0.0156515094278084,0.1058047145,89.41952855
+"237","Null Model (Pi Graph Effect)",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.766162521,0.00844813808367415,0.1176951044,88.23048956
+"238","Null Model (Pi Graph Effect)",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.778898355,0.0158139344961218,0.227367504,77.2632496
+"239","Null Model (Pi Graph Effect)",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.811154084,0.0154598721352217,0.455058048,54.4941952
+"240","Null Model (Pi Graph Effect)",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.839005321,-0.000343143249369394,0.606061423,39.3938577
+"241","Pi Graph Effect",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.855790063,0.614293132883078,0.206136156,79.3863844
+"242","Pi Graph Effect",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.856241089,0.60826054996542,0.214834871,78.5165129
+"243","Pi Graph Effect",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.856432054,0.607635392027936,0.218511674,78.1488326
+"244","Pi Graph Effect",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.858189133,0.593279646177231,0.25161784,74.838216
+"245","Pi Graph Effect",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.862783402,0.551986248773533,0.333111985,66.6888015
+"246","Pi Graph Effect",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.867024974,0.512514896754474,0.402125625,59.7874375
+"247","Pi Graph Effect",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.860460644,1.16340818592252,0.206182697,79.3817303
+"248","Pi Graph Effect",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.860905881,1.15637324272992,0.215054308,78.4945692
+"249","Pi Graph Effect",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.861086709,1.15443163923574,0.218651188,78.1348812
+"250","Pi Graph Effect",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.862814035,1.13539098542925,0.252272209,74.7727791
+"251","Pi Graph Effect",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.867316431,1.0802823061811,0.334747813,66.5252187
+"252","Pi Graph Effect",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.871477028,1.02863283731585,0.404635419,59.5364581
+"253","Pi Graph Effect",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.898984436,5.69260789091864,0.206499543,79.3500457
+"254","Pi Graph Effect",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.899324882,5.6706028356961,0.215827781,78.4172219
+"255","Pi Graph Effect",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.899462415,5.66254062362888,0.219589221,78.0410779
+"256","Pi Graph Effect",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.900769125,5.58432518367413,0.254553342,74.5446658
+"257","Pi Graph Effect",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.904180736,5.37658550445542,0.340414552,65.9585448
+"258","Pi Graph Effect",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.907326552,5.18459826293409,0.412938541,58.7061459
+"259","Pi Graph Effect",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.916685583,7.77371220615566,0.206672218,79.3327782
+"260","Pi Graph Effect",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.916976078,7.74461697610662,0.216290427,78.3709573
+"261","Pi Graph Effect",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.917091029,7.73342664604624,0.220089212,77.9910788
+"262","Pi Graph Effect",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.918200493,7.62755599191069,0.255954437,74.4045563
+"263","Pi Graph Effect",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.92109378,7.34769454963487,0.343871289,65.6128711
+"264","Pi Graph Effect",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.923762616,7.08999911894681,0.418089285,58.1910715
+"265","Pi Graph Effect",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.961277835,13.0163740553192,0.207071717,79.2928283
+"266","Pi Graph Effect",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.96141925,12.9666861873202,0.21704181,78.295819
+"267","Pi Graph Effect",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.96147914,12.9478308318439,0.221253676,77.8746324
+"268","Pi Graph Effect",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.962020822,12.7639885564611,0.258531334,74.1468666
+"269","Pi Graph Effect",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.963439323,12.2828016084432,0.350262358,64.9737642
+"270","Pi Graph Effect",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.96474354,11.8408377424635,0.427405028,57.2594972
+"271","Pi Graph Effect",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.795204979,4.44822653879894,0.0725430485,92.74569515
+"272","Pi Graph Effect",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.798113355,4.3608336069474,0.10367878,89.632122
+"273","Pi Graph Effect",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.79934364,4.33963392141316,0.116771077,88.3228923
+"274","Pi Graph Effect",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.810515847,4.07571363340795,0.227364664,77.2635336
+"275","Pi Graph Effect",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.838435495,3.37926327391373,0.455849915,54.4150085
+"276","Pi Graph Effect",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.862117423,2.75435007667387,0.60621985,39.378015
+"277","Pi Graph Effect",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.82228044,8.004522033486,0.0733592546,92.66407454
+"278","Pi Graph Effect",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.824963997,7.87180778680148,0.1059861579,89.40138421
+"279","Pi Graph Effect",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.826052661,7.82600615743837,0.1191418313,88.08581687
+"280","Pi Graph Effect",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.836289729,7.38525430701953,0.234235776,76.5764224
+"281","Pi Graph Effect",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.861608188,6.23646092918783,0.469455541,53.0544459
+"282","Pi Graph Effect",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.882887424,5.22989215123285,0.622657795,37.7342205
+"283","Pi Graph Effect",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.9561304,25.5853864816312,0.0773245628,92.26754372
+"284","Pi Graph Effect",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.956942917,25.1292938612509,0.1153109519,88.46890481
+"285","Pi Graph Effect",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.957270455,24.9540796227322,0.1305266321,86.94733679
+"286","Pi Graph Effect",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.960300725,23.3091044758487,0.261336955,73.8663045
+"287","Pi Graph Effect",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.967584586,19.3033718782085,0.52024481,47.975519
+"288","Pi Graph Effect",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.973436261,16.0222583045076,0.680012258,31.9987742
+"289","Pi Graph Effect",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.980941915,28.8443182136103,0.078219917,92.1780083
+"290","Pi Graph Effect",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.981310942,28.3156425001043,0.1175816324,88.24183676
+"291","Pi Graph Effect",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.981456632,28.1111409013314,0.1330203785,86.69796215
+"292","Pi Graph Effect",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.982823276,26.2011522708992,0.267493151,73.2506849
+"293","Pi Graph Effect",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.986086479,21.5846589645964,0.531275318,46.8724682
+"294","Pi Graph Effect",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.988687811,17.8400653295165,0.692193929,30.7806071
+"295","Pi Graph Effect",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.999220745,31.2451977693508,0.0790493183,92.09506817
+"296","Pi Graph Effect",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.999236073,30.6595221031135,0.1186786831,88.13213169
+"297","Pi Graph Effect",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.999242545,30.4327652422445,0.1352645521,86.47354479
+"298","Pi Graph Effect",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.999299414,28.3167997645534,0.270839131,72.9160869
+"299","Pi Graph Effect",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.999435452,23.2305899902186,0.537328202,46.2671798
+"300","Pi Graph Effect",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.999543206,19.1339019094212,0.698765546,30.1234454
+"301","Tau Graph Effect",5,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.855496504,0.579779725267358,0.206449907,79.3550093
+"302","Tau Graph Effect",5,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.855982132,0.577833122851796,0.215812186,78.4187814
+"303","Tau Graph Effect",5,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.856171859,0.577069507006981,0.219447406,78.0552594
+"304","Tau Graph Effect",5,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.857988803,0.569797815731452,0.253635869,74.6364131
+"305","Tau Graph Effect",5,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.862772315,0.550694128562407,0.338459797,66.1540203
+"306","Tau Graph Effect",5,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.867202213,0.533061868481941,0.410772904,58.9227096
+"307","Tau Graph Effect",5,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.860738681,1.19609668913055,0.206489426,79.3510574
+"308","Tau Graph Effect",5,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.861209799,1.192083583804,0.215908751,78.4091249
+"309","Tau Graph Effect",5,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.861393849,1.19051229384225,0.219566022,78.0433978
+"310","Tau Graph Effect",5,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.863156312,1.17551123940765,0.253958905,74.6041095
+"311","Tau Graph Effect",5,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.867795459,1.13611001074417,0.339265925,66.0734075
+"312","Tau Graph Effect",5,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.872090434,1.09974379900858,0.411960982,58.8039018
+"313","Tau Graph Effect",5,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.899948098,5.8059045686215,0.206785039,79.3214961
+"314","Tau Graph Effect",5,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.900302945,5.78552516119813,0.216630896,78.3369104
+"315","Tau Graph Effect",5,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.900441547,5.77756218873329,0.22045296,77.954704
+"316","Tau Graph Effect",5,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.901768277,5.70144153096892,0.25637267,74.362733
+"317","Tau Graph Effect",5,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.905255448,5.50183643765011,0.3452776,65.47224
+"318","Tau Graph Effect",5,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.908477363,5.31800953855999,0.4208048,57.91952
+"319","Tau Graph Effect",5,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.917402032,7.85794432430864,0.206916635,79.3083365
+"320","Tau Graph Effect",5,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.917701984,7.82991087395971,0.216952301,78.3047699
+"321","Tau Graph Effect",5,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.917819142,7.81896025829962,0.220847687,77.9152313
+"322","Tau Graph Effect",5,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.918940314,7.71427466251535,0.257446158,74.2553842
+"323","Tau Graph Effect",5,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.921885097,7.43991757562027,0.347946365,65.2053635
+"324","Tau Graph Effect",5,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.924603108,7.18743571789604,0.424724152,57.5275848
+"325","Tau Graph Effect",5,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.961939298,13.0941415301427,0.207252415,79.2747585
+"326","Tau Graph Effect",5,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.962085213,13.0449367873924,0.217772176,78.2227824
+"327","Tau Graph Effect",5,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.962142189,13.0257211813789,0.221854457,77.8145543
+"328","Tau Graph Effect",5,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.962687203,12.8420989026613,0.260180927,73.9819073
+"329","Tau Graph Effect",5,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.964116146,12.3616810778802,0.354723702,64.5276298
+"330","Tau Graph Effect",5,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.965431744,11.9206198904712,0.434647532,56.5352468
+"331","Tau Graph Effect",20,0.002,0.012,"0.2 % 
+ Maine Oct 2020","Household 
+ (Asymptomatic Index Case)",0.791347203,3.94151710887228,0.0735964968,92.64035032
+"332","Tau Graph Effect",20,0.004,0.012,"0.4 % 
+ Idaho May 2021","Household 
+ (Asymptomatic Index Case)",0.794487177,3.886676701144,0.107098139,89.2901861
+"333","Tau Graph Effect",20,0.005,0.012,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Asymptomatic Index Case)",0.79570995,3.86532241705954,0.119870046,88.0129954
+"334","Tau Graph Effect",20,0.013,0.012,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Asymptomatic Index Case)",0.8072998,3.66275145895761,0.233715785,76.6284215
+"335","Tau Graph Effect",20,0.034,0.012,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Asymptomatic Index Case)",0.836575126,3.14987940624048,0.471024346,52.8975654
+"336","Tau Graph Effect",20,0.054,0.012,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Asymptomatic Index Case)",0.861722582,2.70728963078072,0.628819416,37.1180584
+"337","Tau Graph Effect",20,0.002,0.023,"0.2 % 
+ Maine Oct 2020","Healthcare Setting",0.823232078,8.12951735422949,0.0745472445,92.54527555
+"338","Tau Graph Effect",20,0.004,0.023,"0.4 % 
+ Idaho May 2021","Healthcare Setting",0.826061861,8.01536383871977,0.109367344,89.0632656
+"339","Tau Graph Effect",20,0.005,0.023,"0.5 % 
+ Oregon Apr 2021","Healthcare Setting",0.82716278,7.97091180786578,0.122631869,87.7368131
+"340","Tau Graph Effect",20,0.013,0.023,"1.3 % 
+ Georgia Jul 2020","Healthcare Setting",0.837568295,7.54943082419676,0.240603939,75.9396061
+"341","Tau Graph Effect",20,0.034,0.023,"3.4 % 
+ Iowa Nov 2020","Healthcare Setting",0.863612714,6.48361938362969,0.484631593,51.5368407
+"342","Tau Graph Effect",20,0.054,0.023,"5.4 % 
+ Alabama Jan 2021","Healthcare Setting",0.885702755,5.56544679777861,0.644926902,35.5073098
+"343","Tau Graph Effect",20,0.002,0.124,"0.2 % 
+ Maine Oct 2020","From Child Index Case",0.953050277,25.1808198687864,0.0784181812,92.15818188
+"344","Tau Graph Effect",20,0.004,0.124,"0.4 % 
+ Idaho May 2021","From Child Index Case",0.953946589,24.7374957715675,0.118558154,88.1441846
+"345","Tau Graph Effect",20,0.005,0.124,"0.5 % 
+ Oregon Apr 2021","From Child Index Case",0.954294289,24.5655958025202,0.133795089,86.6204911
+"346","Tau Graph Effect",20,0.013,0.124,"1.3 % 
+ Georgia Jul 2020","From Child Index Case",0.957552799,22.9562522021759,0.267908604,73.2091396
+"347","Tau Graph Effect",20,0.034,0.124,"3.4 % 
+ Iowa Nov 2020","From Child Index Case",0.965485974,19.0446126012557,0.535901497,46.4098503
+"348","Tau Graph Effect",20,0.054,0.124,"5.4 % 
+ Alabama Jan 2021","From Child Index Case",0.971958792,15.8461612174947,0.70286512,29.713488
+"349","Tau Graph Effect",20,0.002,0.18,"0.2 % 
+ Maine Oct 2020","Household 
+ (Symptomatic Index Case)",0.981035104,28.8565583605409,0.0792526363,92.07473637
+"350","Tau Graph Effect",20,0.004,0.18,"0.4 % 
+ Idaho May 2021","Household 
+ (Symptomatic Index Case)",0.981417528,28.3295796228715,0.120532432,87.9467568
+"351","Tau Graph Effect",20,0.005,0.18,"0.5 % 
+ Oregon Apr 2021","Household 
+ (Symptomatic Index Case)",0.981565746,28.1253837303801,0.136189754,86.3810246
+"352","Tau Graph Effect",20,0.013,0.18,"1.3 % 
+ Georgia Jul 2020","Household 
+ (Symptomatic Index Case)",0.982951019,26.217555335609,0.273688431,72.6311569
+"353","Tau Graph Effect",20,0.034,0.18,"3.4 % 
+ Iowa Nov 2020","Household 
+ (Symptomatic Index Case)",0.986293847,21.6102274802359,0.546373499,45.3626501
+"354","Tau Graph Effect",20,0.054,0.18,"5.4 % 
+ Alabama Jan 2021","Household 
+ (Symptomatic Index Case)",0.988987001,17.8757252908851,0.714302979,28.5697021
+"355","Tau Graph Effect",20,0.002,0.377,"0.2 % 
+ Maine Oct 2020","Spouses",0.998885652,31.2011841244418,0.0797849065,92.02150935
+"356","Tau Graph Effect",20,0.004,0.377,"0.4 % 
+ Idaho May 2021","Spouses",0.998908703,30.6167153941618,0.121789487,87.8210513
+"357","Tau Graph Effect",20,0.005,0.377,"0.5 % 
+ Oregon Apr 2021","Spouses",0.99891764,30.3903548606979,0.137713396,86.2286604
+"358","Tau Graph Effect",20,0.013,0.377,"1.3 % 
+ Georgia Jul 2020","Spouses",0.999000999,28.2784812613447,0.277340892,72.2659108
+"359","Tau Graph Effect",20,0.034,0.377,"3.4 % 
+ Iowa Nov 2020","Spouses",0.99920128,23.2017165360486,0.552869444,44.7130556
+"360","Tau Graph Effect",20,0.054,0.377,"5.4 % 
+ Alabama Jan 2021","Spouses",0.99936164,19.1122613581131,0.721271625,27.8728375

@@ -1,0 +1,603 @@
+---
+title: "Prior Distributions for Tau and PI"
+output: html_document
+---
+
+In this script we find reasonable prior distributions based on reported data for the network transmission parameter ($\tau$) and the population prevalence / community transmission parameter ($\pi$). 
+
+```{r message=FALSE, warning=FALSE}
+library(zoo)
+library(dplyr)
+library(ggplot2)
+library(fitdistrplus)
+library(ggpubr)
+library(tidyverse)
+```
+
+```{r}
+path.in <- "5_SAR datasets" # Specify folder locatin of inputs
+path.out.data <- "5_SAR datasets"
+path.out.figures <- "1_Figures" # Change to where to write output files to
+```
+
+# Network Transmission- Tau 
+
+We want to estimate a prior distribution for the Secondary attack (infection) rate: https://www.cdc.gov/csels/dsepd/ss1978/lesson3/section2.html
+
+We have two datasets- provided by Lewis et al. 202 and Jing et al. 2020 - that we can use to estimate a prior distribtion for tau. 
+```{r}
+Lewis2020 <- read.csv(file.path(path.in, "Lewis2020.csv"))
+Jing2020 <- read.csv(file.path(path.in, "Jing2020.csv"))
+```
+
+## Lewis et al 2020: 
+- 58 households (58 primary infections)
+- 32 households had evidence of secondary infection 
+- SIR was 28\% (n=52/188) 
+- Study of household transmission. Study was conducted March - May 2020 (period in which shelter-in-place orders and social distancing recommendations were largely in place across the US) in Utah and Wisconsin. These states chosen due to relatively low COVID-19 prevalence in order to reduce the risk of additional community exposure to household contacts. 
+
+```{r}
+# calculate SIR for entire study population 
+sum(Lewis2020$any_pos)
+
+table(Lewis2020$member_type) # member_type =1 is index case; = 0 is household contact
+
+new_cases <- sum(Lewis2020$any_pos)- sum(Lewis2020$member_type)
+new_cases / (nrow(Lewis2020) - sum(Lewis2020$member_type)) 
+# 58 primary infections
+# 52 secondary infections (numerator)
+# 188 contacts (denominator)
+# SIR = 28% (same as found in Lewis 2020 paper)
+# SAR = number new cases among contacts / total number of contacts
+```
+
+Note: 
+`new_hh_memnum` gives the total number of people in the household
+However, 9 individuals declined to participate
+`house_mem_count` gives the number of people in the household who participated
+We will estimate SAR assuming the total size of the household is given by house_mem_count
+```{r}
+# create unique householdid var
+Lewis2020$household_id <- gsub("(\\d+)[^-]*$", "", Lewis2020$study_id_merge)
+Lewis2020$household_id <- gsub("-", "", Lewis2020$household_id)
+```
+
+Estimate a secondary infection rate for each household/cluster in the data set and then fit a distribution to these taus
+```{r}
+Lewis_SAR <- Lewis2020 %>% 
+  group_by(household_id) %>%
+  summarise(household_id = household_id,
+            secondary = sum(any_pos)-1,
+            num_contacts = housemem_count-1,
+            SAR = secondary/ num_contacts, 
+            data_id = "Lewis2020") %>%
+            distinct()
+```
+
+## Jing et al 2020
+```{r}
+# for now, lets just look at household secondary attack rate
+Jing2020_house <- Jing2020 %>% filter(Same.Residential.Address == 1)
+Jing2020_house$any_pos <- ifelse(Jing2020_house$Case.Type == "primary case" | Jing2020_house$Case.Type == "secondary case", 
+                                 1, 0)
+# 14 times where there is more than one primary case in a cluster
+Jing2020_house %>% count(Cluster.ID, Case.Type) %>% summarise(bad = sum(ifelse(Case.Type == "primary case" & n > 1, 1, 0)))
+# cluster.id where there is more than one primary case
+remove_clusters <- Jing2020_house %>% count(Cluster.ID, Case.Type) %>% filter(Case.Type == "primary case" & n > 1) %>% dplyr::select(Cluster.ID)
+
+Jing2020_house2 <- subset(Jing2020_house, !Jing2020_house$Cluster.ID %in% remove_clusters$Cluster.ID)
+Jing2020_house2$IsSecondary <- ifelse(Jing2020_house2$Case.Type == "secondary case", 1, 0)
+
+temp <- Jing2020_house2 %>% count(Cluster.ID)
+table(temp$n) # 19 clusters that only contain 1 person (primary case)
+# these 19 clusters are dropped (can't infer valid SAR)
+length(unique(Jing2020_house2$Cluster.ID)) # 168 clusters total
+
+Jing_SAR <- Jing2020_house2 %>% 
+  filter(Case.Type == "secondary case" | Case.Type == "contact") %>%
+  group_by(Cluster.ID) %>%
+  summarise(household_id = Cluster.ID,
+            secondary = sum(IsSecondary), 
+            num_contacts = Size..Same.Residential.Address.-1, 
+            SAR = secondary/num_contacts, 
+            data_id = "Jing2020") %>%
+  distinct() # 149 clusters after dropping the 19 that only have 1 person
+mean(Jing_SAR$SAR)
+# SAR = number new cases among contacts / total number of contacts
+```
+
+## Fit distribution to data 
+Merge into one SAR dataset
+```{r}
+# keep columns that are same in both data sets
+common_col <- c(intersect(names(Jing_SAR), names(Lewis_SAR)))
+all_SAR <- rbind(Jing_SAR[,common_col], Lewis_SAR[,common_col])
+```
+
+### Beta Binomial Distribution
+The beta distribution is the conjugate prior probability distribution to the binomial and is a useful model for the random behavior of a percentage/proportion (since it is defined n the interval [0,1]). Given our observed SAR values (data, $X$) and a beta prior, we want to estimate the parameters (alpha and beta).
+
+Using the parameterization described here, we have closed form solutions for $\alpha$ and $\beta$: 
+https://en.wikipedia.org/wiki/Beta-binomial_distribution#Further_Bayesian_considerations
+
+We reparameterize the distribution so that the expected mean of the prior is a single parameter: 
+$$
+Beta(M \mu, M(1-\mu))
+$$
+where
+$$
+\mu = \frac{\alpha}{\alpha + \beta} \\
+
+M = \alpha + \beta
+$$
+
+Let $k_i$ be the number of successes out of $n_i$ trials for event $i$: 
+$$
+k_i \sim Bin(n_i, \theta_i) \\
+\theta_i \sim Beta(\mu, M), i.i.d
+$$
+
+To find the point estimates of $\mu$ and $M$ we use the sample: 
+$$
+\hat{\mu} = \frac{\sum_{i=1}^N k_i}{\sum_{i=1}^N n_i} \\
+s^2 = \frac{1}{N}\sum_{i=1}^N var \left(\frac{k_i}{n_1} \right) \\
+\hat{M}  = \frac{\hat{\mu}(1-\hat{\mu})-s^2}{s^2 - \frac{\hat{\mu}(1-\hat{\mu}}{N} \sum_{i=1}^N \frac{1}{n_i}}
+$$
+
+
+Once we have the point estimates for the underlying distribution, we use them to find a point estimate of $\hat{\theta_i}$, the probability of success for event $i$: 
+$$
+\hat{\theta_i} = \frac{k_i + \hat{M}\hat{\mu}}{n_i + \hat{M}}
+$$ 
+
+```{r}
+N <- nrow(all_SAR)
+
+# point estimates for mu and M
+hat_theta = all_SAR$secondary / all_SAR$num_contacts
+mu = sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
+s2 = N *  sum(all_SAR$num_contacts * (hat_theta -mu)^2)/((N-1) * sum(all_SAR$num_contacts))
+M_hat = (mu * (1-mu) -s2)/(s2 - mu * (1-mu)/N * sum(1/all_SAR$num_contacts))
+
+print(paste("M_hat=", M_hat, "mu=", mu))
+
+alpha <- M_hat*mu
+beta <- M_hat*(1-mu)
+print(paste("alpha=", alpha, "beta=", beta))
+
+# point estimate for the posterior (probability of success for event i)
+theta_i <- (all_SAR$secondary + M_hat*mu)/(all_SAR$num_contacts + M_hat)
+all_SAR$theta_i <- theta_i
+
+
+```
+
+```{r}
+# plot distribution using these parameters
+p <- seq(0,1,length=100)
+pdf(file.path(path.out.figures, "beta_dist.pdf"), width =8, height =5)
+plot(p, dbeta(p, alpha, beta), ylab="density", type ="l", col=7)
+legend(0.5,5, c("Be(alpha=0.70, beta=2.80)"),
+       lty=c(1,1,1,1),col=c(7,6,5,4,3,2,1))
+dev.off()
+```
+
+
+Simulate number of infections using fitted distribution, compare to observed
+```{r message=FALSE, warning=FALSE}
+B <- 1000
+mock <- sapply(1:B, function(b){
+  u = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,all_SAR$theta_i)/x}) 
+  o = ks.test(u, all_SAR$SAR)
+  return(o$p.value)
+})
+hist(mock)
+
+# just to visualize- not a formal test
+sim_dist <- lapply(all_SAR$num_contacts, function(x){rbinom(100,x,all_SAR$theta_i)})
+sim_dist <- data.frame(x=unlist(sim_dist))
+
+pdf(file.path(path.out.figures, "fitted_tau_dist.pdf"), width =8, height =5)
+ggplot()+
+  geom_density(data=sim_dist, aes(x=x), alpha=0.3, fill="red")+
+  geom_density(data=all_SAR, aes(x=secondary), alpha=0.3, fill="green")+
+  ggtitle("Simulated Secondary Cases vs. Observed")
+dev.off()
+```
+
+```{r}
+##### Check goodness of fit 
+mock <- sapply(1:B, function(b){
+  u = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199)/x}) + rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #m = as.matrix(rbind(as.numeric(names(table(u))), table(u)))
+  v = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199)/x})+ rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #mm = as.matrix(rbind(as.numeric(names(table(v))), table(v)))
+  o = ks.test(u, all_SAR$secondary/all_SAR$num_contacts + rnorm(length(all_SAR$num_contacts), 0, 0.001))
+  oo = ks.test(u, v, )
+  return(c(o$p.value, oo$p.value))
+})
+hist(mock[1,])
+hist(mock[2,], alpha=0.5,add=TRUE)
+mean(mock[2,] < mean(mock[1,]))
+```
+
+## Alpha, Beta Parameters from published CI
+The previously estimated $\alpha$ and $\beta$ parameters are for household transmission, based on data from two studies. However, estimates of SAR in the literature are heterogeneous and other settings (non-household) may have different SAR distributions. Therefore, we use the point estimates and 95 percent confidence intervals from published literature to estimate the $\alpha, \beta$ parameters of a Beta distribution for that data. To do so we use a function developed in the Division of Clinical Epidemiology at Montreal General Hospital, http://www.medicine.mcgill.ca/epidemiology/Joseph/PBelisle/BetaParmsFromQuantiles.html
+
+```{r}
+source("beta_params.R")
+sar_dat <- read.csv(file.path(path.in, "SAR_95CI_sc_collected.csv"))
+sar_dat$alpha <- numeric(nrow(sar_dat)) 
+sar_dat$beta <- numeric(nrow(sar_dat))
+
+for (i in 1:nrow(sar_dat)){
+  q <- c(sar_dat[i, "X95CI_lw"], sar_dat[i, "X95CI_up"])
+  q[1] <- ifelse(q[1]==0, q[1]+0.0001, q[1]) # lower bound can't be exactly zero
+  beta <- beta.parms.from.quantiles(q=q)
+  sar_dat[i,"alpha"] <- beta$a
+  sar_dat[i, "beta"] <- beta$b
+}
+
+# add alpha and beta that we calculated from Jing and Lewis data
+# "alpha= 0.696031266386682 beta= 2.80459657338163"
+sar_dat[nrow(sar_dat)+1,] <- c("LewisJing_2020", "Household", "NA", "NA", "NA", "sc_calculated",
+                               0.696, 2.805)
+sar_dat$alpha <- as.numeric(sar_dat$alpha)
+sar_dat$beta <- as.numeric(sar_dat$beta)
+sar_dat$alpha_beta <- paste(round(sar_dat$alpha, 2), ",", round(sar_dat$beta, 2))
+
+```
+
+```{r}
+sar_select <- sar_dat %>% filter(Notes %in% c("symptomatic_index", 
+                                              "asymptomatic_index", 
+                                              "spouses", 
+                                              "healthcare", 
+                                              "child_index", 
+                                              "sc_calculated"))
+
+#write.csv(sar_select, "sar_select.csv")
+```
+
+```{r}
+# generate the beta distributions with different parameters
+set.seed(123) # reproducible
+p <- seq(0, 1, .01)
+beta_dist <- matrix(nrow = length(p), ncol = nrow(sar_dat)+1)
+beta_dist[,1] <- p
+for(i in 1:nrow(sar_dat)){
+  beta_dist[,(i+1)] <- dbeta(p, sar_dat[i, "alpha"], sar_dat[i, "beta"])
+}
+beta_dist <- data.frame(beta_dist)
+colnames(beta_dist) <- c("p", sar_dat$alpha_beta)
+beta_dist_long <- gather(beta_dist, alpha_beta, dens, "0.45 , 2.38":"0.7 , 2.81", factor_key = TRUE)
+
+# clean up for plotting
+betadist_tau <- beta_dist_long %>% left_join(sar_dat)
+# labels and factors for plotting
+require(graphics)
+# clean up tau_setting column
+betadist_tau$tau_setting <- with(betadist_tau, paste0(Setting, " ", Notes))
+betadist_tau$tau_setting <- gsub("_", " ", betadist_tau$tau_setting)
+betadist_tau$tau_setting[betadist_tau$tau_setting == "Household None" & betadist_tau$Citation ==  "Curmei_2020"] <- "Household (Curmei 2020)"
+betadist_tau$tau_setting[betadist_tau$tau_setting == "Household None" & betadist_tau$Citation ==  "Thompson_2020"] <- "Household (Thompson 2020)"
+betadist_tau$tau_setting[betadist_tau$tau_setting == "Household None" & betadist_tau$Citation ==  "Koh_2020"] <- "Household (Koh 2020)"
+
+betadist_tau$tau_labels <- factor(betadist_tau$tau_setting, 
+                                  levels = c("Children child index", 
+                                             "Healthcare healthcare", 
+                                             "Household sc calculated",
+                                             "Household (Curmei 2020)",
+                                             "Household (Koh 2020)",
+                                             "Household (Thompson 2020)",
+                                             "Household Overall",
+                                             "Household asymptomatic index", 
+                                             "Household symptomatic index",
+                                             "Household spouses"
+                                  ),
+                                  labels = c(expression("From Child Index Case (Spielberger 2021)"),
+                                             expression("Healthcare Setting (Koh 2020)"),
+                                             expression("Household (Lewis 2020, Jing 2020)"), 
+                                             expression("Household (Curmei 2020)"),
+                                             expression("Household (Koh 2020)"),
+                                             expression("Household (Thompson 2020)"),
+                                             expression("Household (Madewell 2020)"),
+                                             expression("Household (Asymptomatic Index Case) \n (Madewell 2020)"), 
+                                             expression("Household (Symptomatic Index Case) \n (Madewell 2020)"),
+                                             expression("Spouses (Madewell 2020)")
+                                  ))
+
+# beta prior distributions on tau 
+tau_priors_all <- ggplot(betadist_tau, aes(x=p, y = dens, group = tau_labels))+
+  geom_line(aes(color = tau_labels)) + theme_bw()+
+    labs(x = "Probability", y = "Density") +
+  guides(color=guide_legend(title=expression(paste("Transmission (", tau, ")"))))
+
+
+pdf(file.path(path.out.figures, "tau_prior_all.pdf"),width=8, height=5)  
+tau_priors_all
+dev.off()
+
+png(file.path(path.out.figures, "tau_prior_all.png"), units = "in", width = 8, height = 5, 
+    res=300)
+tau_priors_all
+dev.off()
+
+# plot of selected tau priors
+betadist_selecttau <- betadist_tau %>% filter(Citation == "Curmei_2020" |
+                                                Notes %in% c("symptomatic_index", 
+                                                             "asymptomatic_index", 
+                                                             "spouses", 
+                                                             "healthcare", 
+                                                             "child_index"))
+
+# beta prior distributions on selecttau 
+tau_priors_select <- ggplot(betadist_selecttau, aes(x=p, y = dens, group = tau_labels))+
+  geom_line(aes(color = tau_labels)) + theme_bw()+
+    labs(x = "Probability", y = "Density") +
+  guides(color=guide_legend(title=expression(paste("Transmission (", tau, ")"))))
+
+
+pdf(file.path(path.out.figures, "tau_prior_select.pdf"),width=8, height=5)  
+tau_priors_select
+dev.off()
+
+png(file.path(path.out.figures, "tau_prior_select.png"), units = "in", width = 8, height = 5, 
+    res=300)
+tau_priors_select
+dev.off()
+
+# put the plots together in one figure
+tau_priors_combined <- ggarrange(tau_priors_all, tau_priors_select, nrow = 2)
+pdf(file.path(path.out.figures, "tau_prior_combo.pdf"),width=8, height=7)  
+tau_priors_combined
+dev.off()
+
+png(file.path(path.out.figures, "tau_prior_combo.png"), units = "in", width = 8, height = 7, 
+    res=300)
+tau_priors_combined
+dev.off()
+```
+
+----------------------------------------------------------------------------
+
+# Prevalence - Pi
+
+To estimate distributions for the prevalence, we follow a similar method to estimating the distribution of $\tau$ by fitting a Beta distribution to reported 95 percent confidence intervals on the prevalence. Specifically, we use the estimate of true number of infections provided here: https://covidestim.org/ and described in preprint here: https://www.medrxiv.org/content/10.1101/2020.06.17.20133983v2
+These infection estimates account for reporting delays and variation in case ascertainment to estimate the true number of infections, along with time trends in COVID-19 epidemiology for every US state and county, from the first reported case (January 13, 2020) through present (data downloaded 28 May 2021)
+
+State population data obtained here: https://www.census.gov/data/tables/time-series/demo/popest/2010s-state-total.html#par_textimage
+
+## Alpha, Beta Parameters from published CI
+
+Again, we use a function developed in the Division of Clinical Epidemiology at Montreal General Hospital, http://www.medicine.mcgill.ca/epidemiology/Joseph/PBelisle/BetaParmsFromQuantiles.html
+
+```{r}
+source("beta_params.R")
+```
+
+
+```{r}
+covidestim <- read.csv(file.path(path.in, "prevalence_covidestim.csv"))
+state_pops <- read.csv(file.path(path.in, "state_populations.csv"))
+state_pops <- state_pops %>% dplyr::select(NAME, POPESTIMATE2019)
+# Only keep data where confidence interval provided
+covidestim <- covidestim %>% drop_na(cases.fitted.hi, cases.fitted.lo)
+covidestim$date <- as.Date(covidestim$date)
+# select 1 representative state from each geographic divsion defined by U.S. census Bureau
+# choose first state alphabetically in the Division if multiple available
+# continental US only 
+# Region 1: Northeast, Division 1: Maine, Division 2: none available
+# Region 2: Midwest, Division 3: Wisconsin, Div 4: Iowa
+# Region 3: South, Div 5: Georgia, Div 6: Alabama, Div 7: Arkansas
+# Region 4: West, Div 8: Idaho, Div 9: Oregon
+table(covidestim$state)
+states <- c("Maine", "Wisconsin", "Iowa", "Georgia", "Alabama", "Arkansas", "Idaho", "Oregon")
+pi_states <- covidestim %>% filter(state %in% states)
+
+table(pi_states$state)
+
+# left join (kep everything in left df, only matching from right df)
+pi_states <- left_join(pi_states, state_pops, 
+              by = c("state" = "NAME"))
+
+pi_states <- pi_states %>%
+  dplyr::mutate(year_month = as.yearmon(date), 
+                infections = infections/POPESTIMATE2019, # normalize by size of population
+                infections.hi = infections.hi/POPESTIMATE2019,
+                infections.lo = infections.lo/POPESTIMATE2019,
+                infections_10dsum = zoo::rollapply(infections, # cumulative 10 day rolling, estimate of active cases
+                                                   width=10, 
+                                                   FUN=function(x) sum(x, na.rm=FALSE),
+                                                   align="right", fill=NA),
+                infections_10dsum_hi = zoo::rollapply(infections.hi,
+                                                   width=10, 
+                                                   FUN=function(x) sum(x, na.rm=FALSE),
+                                                   align="right", fill=NA),
+                infections_10dsum_lo = zoo::rollapply(infections.lo,
+                                                   width=10, 
+                                                   FUN=function(x) sum(x, na.rm=FALSE),
+                                                   align="right", fill=NA),
+  )
+  
+pi_dat <- pi_states %>%
+  group_by(year_month, state) %>%
+  summarise(infections_month_avg = mean(infections_10dsum), 
+            infections_month_avg.hi = mean(infections_10dsum_hi), 
+            infections_month_avg.lo = mean(infections_10dsum_lo)) %>%
+  drop_na(infections_month_avg)
+  
+pi_dat <- data.frame(pi_dat)
+
+```
+
+
+
+```{r}
+pi_dat$alpha <- numeric(nrow(pi_dat)) 
+pi_dat$beta <- numeric(nrow(pi_dat))
+
+for (i in 1:nrow(pi_dat)){
+  q <- c(pi_dat[i, "infections_month_avg.lo"], pi_dat[i, "infections_month_avg.hi"])
+  q[1] <- ifelse(q[1]==0, q[1]+0.0001, q[1]) # lower bound can't be exactly zero
+  beta <- beta.parms.from.quantiles(q=q)
+  pi_dat[i,"alpha"] <- beta$a
+  pi_dat[i, "beta"] <- beta$b
+}
+
+pi_dat$alpha <- as.numeric(pi_dat$alpha)
+pi_dat$beta <- as.numeric(pi_dat$beta)
+pi_dat$alpha_beta <- paste(round(pi_dat$alpha, 2), ",", round(pi_dat$beta, 2))
+pi_dat$state_date <- paste(pi_dat$state, pi_dat$year_month)
+
+
+# generate the beta distributions with different parameters
+set.seed(123) # reproducible
+p <- seq(0, 1, .01)
+beta_dist <- matrix(nrow = length(p), ncol = nrow(pi_dat)+1)
+beta_dist[,1] <- p
+for(i in 1:nrow(pi_dat)){
+  beta_dist[,(i+1)] <- dbeta(p, pi_dat[i, "alpha"], pi_dat[i, "beta"])
+}
+beta_dist <- data.frame(beta_dist)
+colnames(beta_dist) <- c("p", pi_dat$state_date)
+beta_dist_long <- gather(beta_dist, state_date, dens, 2:128, factor_key = TRUE)
+beta_dist_long$state <- gsub("([A-Za-z]+).*", "\\1", beta_dist_long$state_date)
+beta_dist_long$date <- gsub("^[^ ]+ ", "", beta_dist_long$state_date)
+beta_dist_long$date <- as.yearmon(beta_dist_long$date)
+```
+
+```{r}
+## Plots
+
+# plot alpha vs. beta values
+pi_alphabeta <- ggplot(pi_dat, aes(x = alpha, y = beta)) + 
+  geom_point(aes(color=state)) + 
+  facet_wrap(~factor(year_month)) + theme_bw()
+
+pdf(file.path(path.out.figures, "pi_alphabeta_all.pdf"),width=8, height=5)  
+pi_alphabeta
+dev.off()
+
+png(file.path(path.out.figures, "pi_alphabeta_all.png"), units = "in", width = 8, height = 5, 
+    res=300)
+pi_alphabeta
+dev.off()
+
+# plot all distributions
+pi_prior_all <- ggplot(beta_dist_long, aes(x=p, y = dens, group = state_date))+
+  geom_line(aes(color = factor(date))) + 
+  facet_wrap(~state, ncol = 2)+
+  xlim(0, .1) + 
+  theme(legend.position = "right") + 
+  labs(x = "Probability", y = "Density") +
+  guides(color=guide_legend(title="Date")) + 
+   theme_bw()
+
+pdf(file.path(path.out.figures, "pi_prior_all.pdf"),width=8, height=5)  
+pi_prior_all
+dev.off()
+
+png(file.path(path.out.figures, "pi_prior_all.png"), units = "in", width = 8, height = 5, 
+    res=300)
+pi_prior_all
+dev.off()
+
+```
+
+Many of the priors distributions look very similar. We select a few representative ones: 
+Georgia July 2020 (surge) - Beta(16.67, 1282.88)
+Maine October 2020 (low cases)- Beta(9.94, 6561.33)
+Iowa November 2020 (peak of surge)- Beta(16.99, 477.12)
+Alabama January 2021 (peak of surge)- Beta(14.38, 251.01)
+Oregon April 2021 (small fourth wave)- Beta(13.06, 2836.41)
+Idaho May 2021 (declining cases)- Beta(5.77, 1543.33)
+```{r}
+select_pidist <- pi_dat %>% filter(state_date %in% c("Georgia Jul 2020",  
+                                    "Maine Oct 2020", 
+                                    "Iowa Nov 2020", 
+                                    "Alabama Jan 2021", 
+                                    "Oregon Apr 2021", 
+                                    "Idaho May 2021"))
+
+beta_dist_select <- beta_dist_long %>% filter(state_date %in% c("Georgia Jul 2020",  
+                                    "Maine Oct 2020", 
+                                    "Iowa Nov 2020", 
+                                    "Alabama Jan 2021", 
+                                    "Oregon Apr 2021", 
+                                    "Idaho May 2021"))
+
+pi_prior_select <- ggplot(beta_dist_select, aes(x=p, y = dens, group = state_date))+
+  geom_line(aes(color = state_date)) + 
+  xlim(0, .1) + 
+  theme(legend.position = "right") + 
+  labs(x = "Probability", y = "Density") +
+  guides(color=guide_legend(title="State and Date")) + 
+   theme_bw()
+
+pdf(file.path(path.out.figures, "pi_prior_select.pdf"),width=8, height=5)  
+pi_prior_select
+dev.off()
+
+png(file.path(path.out.figures, "pi_prior_select.png"), units = "in", width = 8, height = 5, 
+    res=300)
+pi_prior_select
+dev.off()
+#write.csv(select_pidist, "select_pidist.csv")
+```
+```{r}
+# combined figure
+pi_prior_combo <- ggarrange(pi_prior_all, pi_prior_select, nrow = 2)
+
+pdf(file.path(path.out.figures, "pi_prior_combo.pdf"),width=8, height=8.5)  
+pi_prior_combo
+dev.off()
+
+png(file.path(path.out.figures, "pi_prior_combo.png"), units = "in", width = 8, height = 8.5, 
+    res=300)
+pi_prior_combo
+dev.off()
+```
+
+
+We could use data by age, however results do not appear to be significnatly different and the geographic data are more detailed: 
+```{r}
+# pi_dat <- read.csv(file.path(path.in, "infection_rate_cdc.csv"))
+# pi_dat$alpha <- numeric(nrow(sar_dat)) 
+# pi_dat$beta <- numeric(nrow(sar_dat))
+# pi_dat$infection_pct <- pi_dat$infection_hundredths/100000 #percentage of population
+# pi_dat$cilw_pct <- pi_dat$X95CI_lw/100000
+# pi_dat$ciup_pct <- pi_dat$X95CI_up/100000
+# pi_dat$infection_pct_7day <- pi_dat$infection_pct/26 # average over number of weeks in data
+# pi_dat$cilw_pct_7day <- pi_dat$cilw_pct/26 
+# pi_dat$ciup_pct_7day <- pi_dat$ciup_pct/26 
+# 
+# for (i in 1:nrow(pi_dat)){
+#   q <- c(pi_dat[i, "cilw_pct_7day"], pi_dat[i, "ciup_pct_7day"])
+#   q[1] <- ifelse(q[1]==0, q[1]+0.0001, q[1]) # lower bound can't be exactly zero
+#   beta <- beta.parms.from.quantiles(q=q)
+#   pi_dat[i,"alpha"] <- beta$a
+#   pi_dat[i, "beta"] <- beta$b
+# }
+# 
+# pi_dat$alpha <- as.numeric(pi_dat$alpha)
+# pi_dat$beta <- as.numeric(pi_dat$beta)
+# pi_dat$alpha_beta <- paste(round(pi_dat$alpha, 2), ",", round(pi_dat$beta, 2))
+# 
+# # generate the beta distributions with different parameters
+# set.seed(123) # reproducible
+# p <- seq(0, 1, .01)
+# beta_dist <- matrix(nrow = length(p), ncol = nrow(pi_dat)+1)
+# beta_dist[,1] <- p
+# for(i in 1:nrow(pi_dat)){
+#   beta_dist[,(i+1)] <- dbeta(p, pi_dat[i, "alpha"], pi_dat[i, "beta"])
+# }
+# beta_dist <- data.frame(beta_dist)
+# colnames(beta_dist) <- c("p", pi_dat$Age_Group)
+# beta_dist_long <- gather(beta_dist, alpha_beta, dens, "0_4":"all_ages", factor_key = TRUE)
+# 
+# ggplot(beta_dist_long, aes(x=p, y = dens, group = alpha_beta))+
+#   geom_line(aes(color = alpha_beta)) + 
+#   xlim(0, .2)
+```
+

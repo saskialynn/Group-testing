@@ -143,12 +143,13 @@ sum(df$probit_probability_detection * freq_ct_dat$freq)
 Compute metrics of interest (PPA, sensitivity, tests, etc) for each combination of pool size, prevalence, and tau
 ```{r}
 it =1
-pool.max<-50 # maximum pool size
+pool.max<-30 # maximum pool size
 B <- 100 # number of simulations
 
 for (N in 1:pool.max){
   for (prev in c(0.005, 0.01, 0.02)){
-    for(tau in seq(0, 0.6, by = 0.1)){
+    #for(tau in seq(0, 0.6, by = 0.1)){
+    for(tau in c("house", "meal", "travel")){
       print(c(prev,tau, N))
       a = list(proba_laws(N, prev, tau, 
                           tau_graph_effect=NULL,
@@ -242,6 +243,7 @@ for (N in 1:pool.max){
   } 
 }
 
+#write.csv(res, "sim_may14.csv")
 #write.csv(res, "sim_may8.csv") # max pool size 50, prev up to 0.02
 #write.csv(res, "sim_may4.csv") # max pool size 20, prev up to 0.2
 #write.csv(res, "sim_april29.csv")
@@ -253,7 +255,8 @@ for (N in 1:pool.max){
 
 
 ```{r}
- res <- read.csv("sim_may8.csv")
+ #res <- read.csv("sim_may8.csv")
+res <- read.csv("sim_may14.csv")
 ```
 
 Calculate 95 percent (empirical) confidence intervals for metrics of interest
@@ -587,7 +590,29 @@ sens_plots <- lapply(types[2:5], function(i){
   guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
 })
 
-pdf(file.path(path.out.figures, "sensitivity_plots.pdf"), width=8, height=5)
+pdf(file.path(path.out.figures, "sensitivity_plots_taucat.pdf"), width=8, height=5)
+sens_plots
+dev.off()
+
+
+## HOUSE only
+sens_plots <- lapply(types[2:5], function(i){
+  ggplot(conf_int %>% filter(type == i & tau == "house"), aes(x=pool_size, y= mean_sens)) +
+  geom_line(aes(color=as.factor(tau), linetype = "Alternative Model")) +
+  geom_line(data=conf_int[conf_int$type == "Null Model",], aes(linetype = "Null Model"))+
+  facet_wrap(~ prev) +
+  geom_ribbon(data = . %>% filter(type==i), aes(x=pool_size, ymin = sens_q025, ymax = sens_q975, 
+                  fill = as.factor(tau)), show.legend = F, alpha = 0.2, colour = NA)+
+  scale_linetype_manual(values = lines) +
+  theme_bw() + 
+  #theme(axis.title.x = element_blank())+
+  labs(x = "Pool size", y = "Sensitivity", 
+       linetype = lines) +
+  ggtitle(i) +
+  guides(color=guide_legend(title="Tau"), linetype=guide_legend(title="Correlation")) 
+})
+
+pdf(file.path(path.out.figures, "sensitivity_plots_taucat_house.pdf"), width=8, height=5)
 sens_plots
 dev.off()
 ```

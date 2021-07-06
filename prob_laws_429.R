@@ -16,6 +16,7 @@ compute_pd <- function(N, K, prev){ # community infections
 }
 
 compute_td <- function(N, K, tau){ # network transmission
+  
   sapply(1:K, function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
 }
 # functions to sample prevalence and tau from prior distributions
@@ -29,8 +30,20 @@ prev_subject_effect <- function(x, N){
   return((1/(1+exp(-a))))
 }
 
-tau_graph_effect <- function(x, B){ # sample tau from unif[.5*tau, 1.5*tau]
-  return(runif(B, 0.5 *x, 1.5 * x )) #rbeta
+tau_graph_effect <- function(tau, B){ # sample tau from unif[.5*tau, 1.5*tau]
+  ## ADDED 5/14
+  if(tau=="house"){
+    alpha = 0.696
+    beta = 2.806
+  }else if(tau=="meal"){
+    alpha=21
+    beta=33
+  }else if(tau=="travel"){
+    alpha=17
+    beta=20
+  }
+  #return(runif(B, 0.5 *x, 1.5 * x )) #rbeta
+  return(rbeta(B, alpha, beta))
 }
 
 tau_subject_effect <- function(x, N){ # check this with Claire
@@ -46,6 +59,7 @@ proba_laws <- function(N, prev, tau,
                        prev_subject_effect=NULL,
                        null_mod=NULL,
                        B=1000){
+
   
   ## Null Model
   if(is.null(null_mod) == FALSE){
@@ -84,13 +98,14 @@ proba_laws <- function(N, prev, tau,
     
     ## Sample tau from prior
     if (is.null(tau_graph_effect) == FALSE){
-      taus = tau_graph_effect(tau, B)
+      #taus = tau_graph_effect(tau, B)
       dist_taus = lapply(taus, function(tau){
         sapply(1:N, function(K){ compute_td(N,K, tau) # compute for each tau and value of N
           # MODIFIED: added c((1-tau)^N)
         })})  ### N x B
     }else{
-      taus = rep(tau, B)
+      taus = rep(mean(tau_graph_effect(tau, B)), B) #CHANGED
+      #taus = rep(tau, B)
       dist_taus = lapply(taus, function(tau){
         sapply(1:N, function(K){ compute_td(N,K, tau) 
         })})

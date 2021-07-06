@@ -1,0 +1,10 @@
+﻿Citation,Setting,SAR,95CI_lw,95CI_up,Notes
+Curmei_2020,Household,0.3,0,0.67,None
+Madewell_2020,Household,0.166,0.14,0.193,Overall
+Madewell_2020,Household,0.18,0.142,0.221,symptomatic_index
+Madewell_2020,Household,0.007,0,0.049,asymptomatic_index
+Madewell_2020,Household,0.378,0.258,0.505,spouses
+Thompson_2020,Household,0.211,0.174,0.248,None
+Koh_2020,Household,0.181,0.157,0.206,None
+Koh_2020,Healthcare,0.07,0.04,0.01,healthcare
+Spielberger_2021,Children,0.134,0.057,0.211,child_index
