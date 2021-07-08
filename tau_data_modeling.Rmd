@@ -112,6 +112,9 @@ common_col <- c(intersect(names(Jing_SAR), names(Lewis_SAR)))
 all_SAR <- rbind(Jing_SAR[,common_col], Lewis_SAR[,common_col])
 ```
 
+
+
+
 ### EM Algorithm
 1. Start with uniform prior on $\tau$: Beta(alpha=1, beta=1)
 
@@ -161,6 +164,107 @@ for (i in 2:b){
 ```
 
 
+
+```{r}
+N = nrow(all_SAR)
+hat_theta = all_SAR$secondary / all_SAR$num_contacts
+mu = sum(all_SAR$secondary)/sum(all_SAR$num_contacts)
+s2 = N *  sum(all_SAR$num_contacts * (hat_theta -mu)^2)/((N-1) * sum(all_SAR$num_contacts))
+M_hat = (mu * (1-mu) -s2)/(s2 - mu * (1-mu)/N * sum(1/all_SAR$num_contacts))
+
+```
+
+```{r}
+u = sapply(1:length(all_SAR$num_contacts), function(x){
+  tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+  log(pbinom(all_SAR$secondary[x], all_SAR$num_contacts[x],tau))
+           })
+
+
+
+likelihood <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+  log(pbinom(all_SAR$secondary[x], uu[x],tau ))
+})
+
+  
+  return( sum(u - uuu))
+})
+
+
+u0 = sapply(1:length(all_SAR$num_contacts), function(x){
+  tau = 0.199
+  log(pbinom(all_SAR$secondary[x], all_SAR$num_contacts[x],tau))
+           })
+
+likelihood0 <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,0.199 )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = 0.199
+  log(pbinom(all_SAR$secondary[x], uu[x],tau ))})
+    return( sum(u0 - uuu))
+})
+
+
+likelihood2 <- sapply(1:B, function(b){
+  uu = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  uuu = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+  log(pbinom(all_SAR$secondary[x], uu[x],tau ))
+  })
+  
+  vv = sapply(all_SAR$num_contacts, function(x){rbinom(1,x,M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] )}) 
+  vvv = sapply(1:length(all_SAR$num_contacts), function(x){
+    tau = M_hat / (all_SAR$num_contacts[x] + M_hat) * mu +  all_SAR$num_contacts[x]/ ( all_SAR$num_contacts[x] + M_hat) * all_SAR$secondary[x]/all_SAR$num_contacts[x] 
+  log(pbinom(all_SAR$secondary[x], vv[x],tau ))
+  })
+
+  return( c(sum(vvv - uuu)))
+})
+
+```
+
+
+```{r}
+
+all_SAR2 = all_SAR[which(all_SAR$secondary>0),]
+
+##### Check goodness of fit
+mock <- sapply(1:B, function(b){
+  u = sapply(all_SAR2$num_contacts, function(x){rbinom(1,x,sum(all_SAR2$secondary)/sum(all_SAR2$num_contacts))/x}) + rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #m = as.matrix(rbind(as.numeric(names(table(u))), table(u)))
+  v = sapply(all_SAR2$num_contacts, function(x){rbinom(1,x,sum(all_SAR2$secondary)/sum(all_SAR2$num_contacts))/x})+ rnorm(length(all_SAR$num_contacts), 0, 0.001)
+  #mm = as.matrix(rbind(as.numeric(names(table(v))), table(v)))
+  o = ks.test(u, all_SAR$secondary/all_SAR$num_contacts + rnorm(length(all_SAR$num_contacts), 0, 0.001))
+  oo = ks.test(u, v, )
+  return(c(o$p.value, oo$p.value))
+})
+
+hist(mock[1,])
+hist(mock[2,], alpha=0.5,add=TRUE)
+
+tau2 = sum(all_SAR2$secondary)/sum(all_SAR2$num_contacts)
+u = sapply(1:length(all_SAR2$num_contacts), function(x){
+  log(npbinom(all_SAR2$secondary[x],all_SAR2$num_contacts[x],tau2))
+})
+
+likelihood <- sapply(1:B, function(b){
+  uu = sapply(all_SAR2$num_contacts, function(x){rnbinom(1,x,tau2)}) 
+  uuu = sapply(1:length(all_SAR2$num_contacts), function(x){
+  log(pnbinom(all_SAR$secondary[x],uu[x],0.199))
+})
+  
+  vv = sapply(all_SAR2$num_contacts, function(x){rnbinom(1,x,tau2)}) 
+  vvv = sapply(1:length(all_SAR2$num_contacts), function(x){
+  log(pnbinom(all_SAR$secondary[x],vv[x],0.199))
+})
+  
+  return( c(exp(sum(u - uuu)), exp(sum(vvv - uuu))))
+})
+pchisq(likelihood, 1)
+```
 
 
 
