@@ -1,0 +1,594 @@
+---
+title: "Correlated Individuals Experiments"
+author: "Claire Donnat, Saskia Comess"
+date: "February 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(fitdistrplus)
+library(DescTools)
+library(data.table)
+library(dplyr)
+```
+
+# Load the real data and extract the distribution parameters
+```{r loading}
+# Get all tests
+tests <- data.table::fread("alltests_1mar24jun_v1.csv")
+
+# Keep only valid positive ct values for first tests
+tests %>% filter(result == "positive", firsttest==TRUE,!is.na(cttarget)) %>% pull(cttarget) -> cts
+
+# Fit distribution
+# Plot distribution and skew/kurtosis of ct values of real first tests
+plotdist(cts, histo = TRUE, demp = TRUE, breaks=18)
+descdist(cts, boot = 1000)
+
+# Fit distributions
+fw <- fitdist(cts, "weibull")
+fno <- fitdist(cts, "norm")
+fg <- fitdist(cts, "gamma")
+fln <- fitdist(cts, "lnorm")
+
+# Plot fit distributions and generate goodness-of-fit statistics
+par(mfrow = c(2, 2))
+plot.legend <- c("weibull","normal","gamma", "lnorm")
+denscomp(list(fw,fno,fg,fln), legendtext = plot.legend,xlim=c(0,50))
+qqcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
+cdfcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
+ppcomp(list(fw,fno,fg,fln), legendtext = plot.legend)
+gofstat(list(fw,fno,fg,fln))
+
+```
+
+Weibull has best fit. Extract fit parameters. We can thus assume that the Ct values are sampled from a Weibull distribution with shape 4.55 and scale 29.86.
+```{r get_best_fit}
+summary(fw)
+shape_w = summary(fw)[[1]][1]
+scale_w = summary(fw)[[1]][2]
+```
+
+# Generate (un-correlated) Ct data
+The viral load distribution changes from population to population. As such, we need to take this variability into account: we consider as a surrogate for this variability the proportion of variables that are above the Limit of Detection.
+
+To achieve this, we simply jiggle the distribution:
+- Step 1: we sample 50,000 samples from our fitted Weibul distribution
+- Step 2: for a fixed lod = 35, we create a dictionary between the jiggling and the quantile associated to 35.
+- Step 3: we create a second dictionary mapping the percentage above the threshold and the correct jiggling.
+
+```{r}
+## GENERATE UN-CORRELATED Ct DATA
+# Add variable of proportion Ct value >LoD to model, as surrogate for differences in viral load distribution in different populations
+
+# Number of replicates to generate ecdf offset values for above.
+set.seed(42)
+x<-5000
+
+# Determine ct value quantiles for real first tests vs. fitted Weibull distribution
+quantile(cts,c(0.5,0.25,0.75,0.95,0.99))
+quantile(fw,c(0.5,0.25,0.75,0.95,0.99))
+
+# Create simulated vector of ct values with same shape as that from Weibull distribution fit to ct values from real first tests
+# 5000 draws from weibull with shape and scale parameters drawn from real data
+ct_fake_input <- rweibull(x,fw[[1]][1],fw[[1]][2]) 
+
+# Create matrix of desired input parameters
+# Change above.lod to % samples with ct value >LoD to reflect actual population of interest. Changing "lod" itself has no effect on model output.
+lod <- 35
+above.lod <- seq(0.05,0.3,0.05)
+translation_vector <- seq(-10,15,0.01)
+mat<-matrix(ncol=3,nrow=length(translation_vector))
+
+# Loop 1: fix LOD; for known shift, what percent of samples are above LoD (a)? 
+for(v in 1:length(translation_vector)){
+  i=1 
+  fn<-ecdf(subset(pmax(5,ct_fake_input+translation_vector[v]),
+                  (pmax(5,ct_fake_input+translation_vector[v]))<45)) ## selects adequate values within the sample
+			a<-1-fn(lod) ## percent of cvalues in the distribution above the LoD 
+			mat[(v-1)+i,1]<-lod
+			mat[(v-1)+i,2]<-a
+			mat[(v-1)+i,3]<-translation_vector[v]
+}
+
+# Shift ct values for each LoD and %above lod
+mat2<-matrix(ncol=3,nrow=length(above.lod))
+
+# Loop 2: fix LOD; for known a, how much should you shift? 
+for(j in 1:length(above.lod)){
+	tmp<-subset(mat,mat[,1]==lod)
+	u<-tmp[which.min(abs(above.lod[j]-tmp[,2])),3]
+	mat2[j,1]<-lod[i]
+	mat2[j,2]<-above.lod[j]
+	mat2[j,3]<-u
+}
+```
+
+# Include the probit  coefficients
+The probits scores are necessary to compute the viral load.
+```{r}
+# probit data input
+probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
+probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
+probit<-probit_t[,c(2,4,3)]
+probit<-probit[order(probit$z_value,probit$ct_value),]
+z_scores<-as.numeric(unlist(distinct(probit,z_value)))
+
+# Number of replicates for model
+set.seed(42)
+# n <- 10000
+n <- 10000
+
+pool.max<-20
+probit.mode<-c("base","dsa.lower","dsa.upper","psa") 
+probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
+probit.z.indices<-c(488,1,length(z_scores)) # 488 is a z score of 0 (base case) in the z index vector
+dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
+```
+
+# Loops to vary % above each LOD for different combinations of pool size, prevalence, and positives
+## experiment_loop: Correlated Individuals
+
+experiment_loop() calculates the weighted means using null probabilities (assuming no correlation between individuals, binomial distribution) and using simulated probabilities (accounting for correlated individuals, probability of transmission within network specified by min, max in the calc_probs() fxn) 
+```{r correlated_individuals}
+# Model loop, vary % above each LOD (simplified from original code)
+
+# source("MCMC_sim.R") 
+# contains calc_probs() fxn. This SIMULATES the number of positives per pool
+
+source("Exact_Prob_Calcs.R") 
+# contains exact_probs fxn. This CALCULATES the number of positives per pool 
+pool.max = 20
+
+# if you want to use the simulated probabilities that don't account for community infections (network only)
+# use this to get model_output_corr_indiv_.1.2.csv from experiment_loop()
+# sim_probs_.1.2 <- read.csv("sim_probs_.1.2.csv")
+# sim_probs_.1.2[,1] <- NULL
+prev_corr <- function(prevalence, tau, p) {
+  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+}
+
+experiment_loop <- function(above, ct_dat, sim_min, sim_max){
+  set.seed(123)
+  ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
+  # (1) generate additional set of C_t values with above = 5-30% of values above each LoD; subset to only valid Ct values (<45)
+  # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
+  threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement
+  
+  rbindlist(lapply(1:pool.max, function (p) { # pool size
+    rbindlist(lapply(c(0.001,0.01, 0.03, 0.05,0.1), function(prevalence) { # prevalence ("proportion positive tests")
+      # sim_probs <- calc_probs_all_homogeneous(p, prevalence, min=sim_min, max=sim_max, B=1000)
+      # specify range of correlation to sample from (min, max)
+      rbindlist(lapply(c(0, 0.1, 0.2, 0.3, 0.4), function(tau) {
+        sim_probs <- exact_probs(group_size = p, tau = tau, pop_prev = prevalence)
+        # sim_probs <- exact_probs(group_size = 1, tau = .2, pop_prev = .1)
+        rbindlist(lapply(0:p, function(positives) { # number of positives
+          
+           if (positives == 0) {
+            # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+            prevalence_corr1 <- prev_corr(prevalence, tau, p)
+            data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+                       above.llod = above.lod[above], 
+                       concentration=0, 
+                       tau = tau, 
+                       probability = sim_probs[which(sim_probs$n == 0), "Freq"],
+                       probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
+                       prevalence_corr = prev_corr(prevalence, tau, p),
+                       probability_null = dbinom(positives, p, prevalence_corr1), # prevalence corrected for correlated individuals
+                       random=0, z.index=0,
+                       call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
+          } 
+          else {
+            # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+            prevalence_corr1 <- prev_corr(prevalence, tau, p)
+            dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
+            # sample data uniformly at random 
+            # n samples of positives, rearrange into a matrix of positive rows, n columns
+            
+            each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,
+                                                        rnorm(mean=0,sd=1.1,n=ncol(dat))) 
+            # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
+            # calculation dilution based on number of positives (colSum) in total pool size (p)
+
+            data.frame(
+              limit=lod,
+              pool=p,
+              pos=positives,
+              prevalence=prevalence,
+              above.llod=above.lod[above],
+              concentration=each.conc,
+              tau = tau,
+              # probability = (1-(1-prevalence)^p)*sim_probs_.1.2[positives, (p-1)], # using network only infection probs
+              probability = sim_probs[which(sim_probs$n == positives), "Freq"]/n,
+              probability_null_test = dbinom(positives, p, prevalence)/n, 
+              prevalence_corr = prev_corr(prevalence, tau, p),
+              probability_null = dbinom(positives, p, prevalence_corr1)/n,
+              # random=sample(n,n,replace = TRUE)/n, # n-dim vector
+              random = runif(n, 0, 1),
+              z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
+                             sample(1:length(z_scores),n,replace=T))) %>% 
+              # probit score: probability of false positive or false negative test
+              # get rid of call.each.conc
+              mutate(
+                call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random, 
+                # tp = probit, fn = 1-probit (z.index is the probit score)
+                # repeat n=10000 times checking whether > random
+                # for each combination of variables, we have 10,000 experiments
+                tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
+                tn=0,
+                tp=1 * (call.each.conc),
+                fn=1 * (!call.each.conc),
+                fp=0)
+          }
+        }))
+      }))
+    }))
+  }))
+}
+```
+
+```{r}
+test <- exact_probs(group_size = 1, tau = 0.1, pop_prev = 0.01)
+test[which(test$n == 1)]
+(1-(1-.01)*(1-(.01*.1))^(1-1))
+```
+
+
+
+
+```{r}
+# apply the model loop to the fake correlated data
+#allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, sim_min = 0.1, sim_max = 0.2, ct_dat = ct_fake_input))
+allfirst.poolct <- rbindlist(lapply(1:2, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
+
+group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>% 
+  summarize(pos1=weighted.mean(pos, w=probability),
+            pos_null=weighted.mean(pos, w=probability_null),
+            total.tests=weighted.mean(tests, w=probability), 
+            total.tests_null=weighted.mean(tests, w=probability_null), 
+            tests.per.sample=weighted.mean(tests, w=probability)/mean(pool), # calculate tests per sample
+            tests.per.sample_null=weighted.mean(tests, w=probability_null)/mean(pool),
+            tn1=weighted.mean(tn, w=probability), 
+            tp1=weighted.mean(tp, w=probability), 
+            fn1=weighted.mean(fn, w=probability), 
+            fp1=weighted.mean(fp, w=probability),
+            ppa = weighted.mean(tp/(fn + tp), w=probability, na.rm = TRUE),
+            ppa_null = weighted.mean(tp/(fn + tp), w=probability_null, na.rm = TRUE),
+            tn_null=weighted.mean(tn, w=probability_null), 
+            tp_null=weighted.mean(tp, w=probability_null), 
+            fn_null=weighted.mean(fn, w=probability_null), 
+            fp_null=weighted.mean(fp, w=probability_null)) -> apw
+# rm(allfirst.poolct)
+
+all <- as.data.frame(apw)
+# rm(apw)
+
+#all2 <- all %>% mutate(ppa=tp/(tp+fn))
+#cpi <- as_tibble(BinomCI(all2$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
+#allci <- bind_cols(all2,cpi)
+
+cpi <- as_tibble(BinomCI(all$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
+allci <- bind_cols(all,cpi)
+
+# write.csv(allci, "correlated_exactprobs_Ct15.csv") 
+# write.csv(allci,"correlated_individuals_rho.1.2.csv")
+# write.csv(allci,"correlated_individuals_rho.4.6.csv")
+
+#correlated_individuals_rho.1.2, calc_probs(p, prevalence, min=0.1, max=0.2, B=1000)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(Hmisc)
+
+allci <- read.csv("correlated_exactprobs_Ct15.csv")
+null_res <- allci[,c(1:6, 8, 10, 12, 18:22, 24:25)]
+null_res$type <- "null"
+alt_res <- allci[,c(1:6, 7, 9, 11, 13:17, 24:25)]
+alt_res$type <- "alt"
+names(null_res) <- names(alt_res)
+allci_restruct <- rbind(null_res, alt_res)
+
+# allci <- subset(allci, tau == 0.1)
+ggplot(data = subset(allci, tau == 0.1), mapping = aes(x=pool, y= ppa, color=as.factor(prevalence))) +
+  geom_line() +
+  geom_ribbon(aes(ymin=lwr.ci, ymax=upr.ci), linetype=2, alpha=0.1)
+
+```
+
+```{r}
+ppa_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
+  
+  facet_grid(cols = vars(factor(allci$tau, labels = c("Tau = 0.1", "0.2", "0.3", "0.4", "0.5")))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  # xlab("Pool size") + 
+  ylab("Expected PPA") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+#pdf("plot.eff.corrindiv.4.6.pdf",width=8, height=5)  
+tests_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample_null, color=as.factor(prevalence), linetype = "null")) +
+  facet_grid(cols = vars(factor(allci$tau))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+#dev.off()
+
+library(ggpubr)
+# pdf("plot.ppa.eff.corr.ct15.pdf",width=8, height=5)  
+ggarrange(ppa_plot, tests_plot, 
+          labels = c("A", "B"), 
+          ncol=1, nrow = 2, 
+          common.legend = TRUE, legend = "right")
+# dev.off()
+```
+
+
+
+
+
+```{r}
+# quick check: should have same results for null and alternative when pool size is 1
+allci %>%
+  filter(pool == 1) %>%
+  dplyr::select(ppa, ppa_null)
+
+
+# quick check: should have same results for null and alternative when pool size is 1
+allci %>%
+  filter(pool == 1) %>%
+  dplyr::select(tests.per.sample, tests.per.sample_null, tau)
+
+table(is.na(allfirst.poolct %>%
+  filter(pool == 1) %>%
+  dplyr::select(probability, probability_null)))
+
+t <- allfirst.poolct %>%
+  filter(pos== 0 | pos == 1) %>%
+  dplyr::select(pool, pos, prevalence, probability, probability_null)
+
+```
+
+
+
+
+
+```{r}
+# table to nummerically summarize some of the graphical results
+allci_tauconst <- read.csv("correlated_exactprobs_Ct15.csv")
+summary_table <- allci %>%
+  mutate(ppa_diff=ppa - ppa_null, 
+         test_diff=tests.per.sample - tests.per.sample_null, 
+         ppa_pct_increase = ((ppa-ppa_null)/ppa_null)*100, 
+         test_pct_decrease = ((tests.per.sample - tests.per.sample_null)/tests.per.sample_null)*100) %>%
+  filter(pool == 4 | pool == 18) %>%
+  filter(prevalence == 0.001 | prevalence == 0.1) %>%
+  dplyr::select(pool, prevalence, tau, 
+                ppa_null, ppa_pct_increase,
+                tests.per.sample_null, test_pct_decrease,
+                ppa_diff, test_diff)
+
+write.csv(summary_table, "summary_table_ppa.csv")
+```
+
+
+```{r correlated_individuals}
+# Model loop, vary % above each LOD (simplified from original code)
+
+# source("MCMC_sim.R") 
+# contains calc_probs() fxn. This SIMULATES the number of positives per pool
+
+source("Exact_Prob_Calcs.R") 
+# contains exact_probs fxn. This CALCULATES the number of positives per pool 
+pool.max = 20
+group.max = 60
+# if you want to use the simulated probabilities that don't account for community infections (network only)
+# use this to get model_output_corr_indiv_.1.2.csv from experiment_loop()
+# sim_probs_.1.2 <- read.csv("sim_probs_.1.2.csv")
+# sim_probs_.1.2[,1] <- NULL
+prev_corr <- function(prevalence, tau, p) {
+  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+}
+
+experiment_loop <- function(above, ct_dat, sim_min, sim_max){
+  ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
+  # (1) generate additional set of C_t values with above = 5-30% of values above each LoD; subset to only valid Ct values (<45)
+  # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
+  threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement
+  rbindlist(lapply(1:pool.max, function (p) { # pool size
+    num_pools <- ceiling(group.max / p)
+    rbindlist(lapply(c(0.001,0.01, 0.03, 0.05,0.1), function(prevalence) { # prevalence ("proportion positive tests")
+      # sim_probs <- calc_probs_all_homogeneous(p, prevalence, min=sim_min, max=sim_max, B=1000)
+      # specify range of correlation to sample from (min, max)
+      rbindlist(lapply(c(0, 0.1, 0.2, 0.3, 0.4), function(tau) {
+        #sim_probs <- exact_probs(group_size = p, tau = tau, pop_prev = prevalence)
+        sim_probs <- exact_probs(group_size = p, tau = tau, pop_prev = prevalence, tau_sample = TRUE, num_pools = num_pools)
+        # sim_probs <- exact_probs(group_size = 1, tau = .2, pop_prev = .1)
+        rbindlist(lapply(0:p, function(positives) { # number of positives
+          
+           if (positives == 0) {
+            # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+            prevalence_corr1 <- prev_corr(prevalence, tau, p)
+            data.frame(limit=lod, pool=p, pos=positives, prevalence=prevalence, 
+                       above.llod = above.lod[above], 
+                       concentration=0, 
+                       tau = tau, 
+                       probability = sim_probs[which(sim_probs$n == 0), "Freq"],
+                       probability_null_test = dbinom(positives, p, prevalence), # uncorrected prevalence
+                       prevalence_corr = prev_corr(prevalence, tau, p),
+                       probability_null = dbinom(positives, p, prevalence_corr1), # prevalence corrected for correlated individuals
+                       random=0, z.index=0,
+                       call.each.conc=FALSE, tests=1, tn=1,tp=0,fn=0,fp=0)
+          } 
+          else {
+            # prevalence_corr <-  1-((1-prevalence)*(1-(prevalence*tau))^(p-1))
+            prevalence_corr1 <- prev_corr(prevalence, tau, p)
+            dat <- matrix(sample(threshold.ct, positives * n, replace=T), nrow=positives) 
+            # sample data uniformly at random 
+            # n samples of positives, rearrange into a matrix of positive rows, n columns
+            
+            each.conc = -log2(colSums(2^-dat)/p)+ifelse(dilution.vary.index==1,0,
+                                                        rnorm(mean=0,sd=1.1,n=ncol(dat))) 
+            # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
+            # calculation dilution based on number of positives (colSum) in total pool size (p)
+
+            data.frame(
+              limit=lod,
+              pool=p,
+              pos=positives,
+              prevalence=prevalence,
+              above.llod=above.lod[above],
+              concentration=each.conc,
+              tau = tau,
+              # probability = (1-(1-prevalence)^p)*sim_probs_.1.2[positives, (p-1)], # using network only infection probs
+              probability = sim_probs[which(sim_probs$n == positives), "Freq"]/n,
+              probability_null_test = dbinom(positives, p, prevalence)/n, 
+              prevalence_corr = prev_corr(prevalence, tau, p),
+              probability_null = dbinom(positives, p, prevalence_corr1)/n,
+              random=sample(n,n,replace = TRUE)/n, #
+              z.index=ifelse(probit.mode.index<4,probit.z.indices[probit.mode.index],
+                             sample(1:length(z_scores),n,replace=T))) %>%
+              mutate(
+                call.each.conc=probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]>random,
+                tests=1 + p * (call.each.conc), # number of tests done (number positive pools + pool size)
+                tn=0,
+                tp=1 * (call.each.conc),
+                fn=1 * (!call.each.conc),
+                fp=0)
+          }
+        }))
+      }))
+    }))
+  }))
+}
+```
+
+```{r}
+# apply the model loop to the fake correlated data
+#allfirst.poolct <- rbindlist(lapply(1:length(above.lod), experiment_loop, sim_min = 0.1, sim_max = 0.2, ct_dat = ct_fake_input))
+allfirst.poolct <- rbindlist(lapply(3, experiment_loop, ct_dat = ct_fake_input)) # just for 15% Ct > LoD 
+
+group_by(allfirst.poolct, pool, prevalence, above.llod, limit, tau) %>% 
+  summarize(pos1=weighted.mean(pos, w=probability),
+            pos_null=weighted.mean(pos, w=probability_null),
+            total.tests=weighted.mean(tests, w=probability), 
+            total.tests_null=weighted.mean(tests, w=probability_null), 
+            tests.per.sample=weighted.mean(tests, w=probability)/mean(pool), # calculate tests per sample
+            tests.per.sample_null=weighted.mean(tests, w=probability_null)/mean(pool),
+            tn1=weighted.mean(tn, w=probability), 
+            tp1=weighted.mean(tp, w=probability), 
+            fn1=weighted.mean(fn, w=probability), 
+            fp1=weighted.mean(fp, w=probability),
+            ppa = weighted.mean(tp/(fn + tp), w=probability, na.rm = TRUE),
+            ppa_null = weighted.mean(tp/(fn + tp), w=probability_null, na.rm = TRUE),
+            tn_null=weighted.mean(tn, w=probability_null), 
+            tp_null=weighted.mean(tp, w=probability_null), 
+            fn_null=weighted.mean(fn, w=probability_null), 
+            fp_null=weighted.mean(fp, w=probability_null)) -> apw
+# rm(allfirst.poolct)
+
+all <- as.data.frame(apw)
+rm(apw)
+
+#all2 <- all %>% mutate(ppa=tp/(tp+fn))
+#cpi <- as_tibble(BinomCI(all2$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
+#allci <- bind_cols(all2,cpi)
+
+cpi <- as_tibble(BinomCI(all$ppa*n,n,conf.level=0.95,method="clopper-pearson"))
+allci <- bind_cols(all,cpi)
+
+# write.csv(allci, "correlated_exactprobs_tauhet_Ct15.csv")
+# write.csv(allci, "correlated_exactprobs_Ct15.csv") 
+# write.csv(allci,"correlated_individuals_rho.1.2.csv")
+# write.csv(allci,"correlated_individuals_rho.4.6.csv")
+
+#correlated_individuals_rho.1.2, calc_probs(p, prevalence, min=0.1, max=0.2, B=1000)
+```
+
+```{r}
+allci <- read.csv("correlated_exactprobs_tauhet_Ct15.csv")
+ppa_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= ppa, color=as.factor(prevalence),linetype="correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y=ppa_null, color=as.factor(prevalence),linetype="null")) +
+  
+  facet_grid(cols = vars(factor(allci$tau, labels = c("Tau = 0.1", "0.2", "0.3", "0.4", "0.5")))) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  # xlab("Pool size") + 
+  ylab("Expected PPA") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(limits=c(0.8,1),breaks=seq(0.5,1,.1)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+
+
+# Print plot of pool size vs. average tests/sample, panel grid of %Ct > LoD, color by proportion test pos
+#pdf("plot.eff.corrindiv.4.6.pdf",width=8, height=5)  
+tests_plot <- ggplot() +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample, color=as.factor(prevalence), linetype = "correlated")) +
+  geom_line(allci, mapping = aes(x=pool, y= tests.per.sample_null, color=as.factor(prevalence), linetype = "null")) +
+  facet_grid(cols = vars(factor(allci$tau))) +
+  theme_bw() + 
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + ylab("Average tests per sample") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,4)) + scale_y_continuous(trans="reverse", limits=c(1.2,0),breaks=seq(0,1.2,0.2)) +
+  guides(color=guide_legend(title="Proportion of\ntests positive")) + 
+  guides(linetype=guide_legend(title="Correlation Structure")) 
+#dev.off()
+
+library(ggpubr)
+pdf("plot.ppa.eff.corr.tauhet.ct15.pdf",width=8, height=5)  
+ggarrange(ppa_plot, tests_plot, 
+          labels = c("A", "B"), 
+          ncol=1, nrow = 2, 
+          common.legend = TRUE, legend = "right")
+dev.off()
+```
+
+```{r}
+test <- read.csv("correlated_exactprobs_Ct15.csv")
+
+allci[allci$pool == 17,]$ppa_null
+test[test$pool == 17, ]$ppa_null
+```
+
+```{r}
+# quick check: should have same results for null and alternative when pool size is 1
+allci %>%
+  filter(pool == 1) %>%
+  dplyr::select(ppa, ppa_null)
+
+# quick check: should have same results for null and alternative when pool size is 1
+allfirst.poolct %>%
+  filter(pool == 1) %>%
+  dplyr::select(ppa, ppa_null)
+
+table(is.na(allfirst.poolct %>%
+  filter(pool == 1) %>%
+  dplyr::select(probability, probability_null)))
+
+t <- allfirst.poolct %>%
+  filter(pos== 0 | pos == 1) %>%
+  dplyr::select(pool, pos, prevalence, probability, probability_null)
+
+```
+
+

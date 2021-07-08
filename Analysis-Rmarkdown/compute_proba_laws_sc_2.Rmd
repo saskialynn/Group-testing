@@ -1,0 +1,877 @@
+---
+title: "Simulations"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(fitdistrplus)
+library(DescTools)
+library(data.table)
+library(dplyr)
+library(reshape2)
+library(RColorBrewer)
+```
+
+Modified code from Claire's compute_proba_laws.R
+
+The probability of having $K$ total positives in a pool of size $n$ is the probability of $k$ being infected in the community (probability of infection equals prevalence) and $K-k$ being infected via network transmission (probability of infection equals $\tau$).
+$$
+P(\sum Y_i = K) = 
+     \sum_{k=1}^K \left( {n \choose k} \pi^k (1-\pi)^{n-k} {n-k \choose K- k} (1-(1-\tau)^k)^{K-k} ((1-\tau)^k)^{(n-K)} \right)
+$$
+
+```{r}
+# inputs for debugging/testing purposes
+N <- 10
+prev <- .01
+tau <- .2
+B <- 1000
+```
+
+```{r}
+##############################
+####  Compute proba laws (approximation) with whilst allowing for some variability
+####  INPUT
+####  --------------------------------------------
+####  N, prev, tau         : Size of the group, baseline prevalence and transmissibility
+####  tau_graph_effect     : function to sample variables taus (graph effect). NULL if no graph effect.
+####  tau_subject_effect   : function to sample variables taus (edge effect). NULL if no edge effect.
+####  prev_graph_effect    : function to sample variables prevs (graph effect). NULL if no graph effect.
+####  prev_subject_effect  : function to sample variables prevs (subject effect). NULL if no edge effect.
+####
+
+# functions to compute probability of K positives in a pool of size N
+compute_pd <- function(N, K, prev){ # community infections
+  if (K >N){
+    print("Error: K>N")
+    return(NA)
+  }else{
+    if (K ==0){
+      return(prev^N)
+    }else{
+      sapply(1:K, function(k){choose(N,k) * prev^k * (1-prev)^(N-k) })
+    }
+    
+  }
+  
+}
+
+compute_td <- function(N, K, tau){ # network transmission
+<<<<<<< HEAD
+  sapply(1:K, function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
+=======
+    if (K >N){
+    print("Error: K>N")
+    return(NA)
+  }else{
+    if (K ==0){
+      return(1)
+    }else{
+      sapply(1:(K), function(k){choose(N-k,K-k) *((1-tau)^k)^(N-K) * (1-(1-tau)^k)^(K-k)})
+    }
+    
+  }
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
+}
+# functions to sample prevalence and tau from prior distributions
+prev_graph_effect <- function(x, B){
+  a = rnorm(B, log(x/(1-x)), 1)
+  return((1/(1+exp(-a))))
+}
+
+prev_subject_effect <- function(x, N){ 
+  a = sapply(x, function(xx){rnorm(N,log(xx/(1-xx)), 1)})
+  return((1/(1+exp(-a))))
+}
+
+tau_graph_effect <- function(x, B){ # sample tau from unif[.5*tau, 1.5*tau]
+  return(runif(B, 0.5 *x, 1.5 * x ))
+}
+
+tau_subject_effect <- function(x, N){ # check this with Claire
+  a = sapply(x, function(xx){runif(N, 0.5*xx, 1.5*xx)}) # change to sampling from pareto 
+  return(a)
+}
+```
+
+```{r}
+proba_laws <- function(N, prev, tau, 
+                       tau_graph_effect=NULL,
+                       tau_subject_effect=NULL, 
+                       prev_graph_effect=NULL,
+                       prev_subject_effect=NULL,
+                       null_mod=FALSE,
+                       B=1000){
+<<<<<<< HEAD
+  
+  ## Null Model
+  if(is.null(null_mod) == FALSE){
+=======
+  if(null_mod == FALSE){
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
+    prevs=rep(prev, B)
+    dist_prevs = lapply(prevs, function(prev){
+      dbinom(0:N, N, prev)
+    })
+  }
+  
+<<<<<<< HEAD
+  ## Sample prevalence from prior
+  if (is.null(prev_graph_effect) == FALSE){ 
+    prevs = prev_graph_effect(prev, B) # sample prevalence B times
+    #dist_nothing <- sapply(prevs, function(prev){(1-prev)^N}) # nobody infected from community
+    dist_prevs = lapply(prevs, function(prev){ # 1:K infected from comm
+      c((1-prev)^N, sapply(1:N, function(K){ compute_pd(N,K, prev)
+      }))})  ### list (B length) of N+1 items (for 0:N infected), each of length k
+    # dist_prevs is the probability of 1:k individuals infected in pool
+  }else{ # point value of prev (not sampled)
+    prevs = rep(prev, B)
+    #dist_nothing <- sapply(prevs, function(prev){(1-prev)^N})
+    dist_prevs = lapply(prevs, function(prev){
+      c((1-prev)^N, sapply(1:N, function(K){compute_pd(N,K, prev)
+      }))})   ### list (B length) of K items of length k
+  }
+  
+  ## REVIEW LATER
+=======
+  
+  
+  if (is.null(prev_graph_effect) == FALSE){ # sample prevalence from prior
+    prevs = prev_graph_effect(prev, B) # sample prevalence B times
+  }else{ # point value of prev (not sampled)
+    prevs = rep(prev, B)
+  }
+  dist_nothing <- sapply(prevs, function(prev){(1-prev)^N}) # nobody infected from community
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
+  if (is.null(prev_subject_effect) == FALSE){
+    #### the prevalence is small, so we use a Poisson approximation to the binomial
+    ## large n, small pi -> lambda = n(pi)
+    dist_prevs = lapply(prevs, function(prev){
+      #### generate subject effects
+      prev_s = prev_subject_effect(prev, N) # sample prev
+<<<<<<< HEAD
+      lambda=  sum(prev_s)
+=======
+      lambda =  sum(prev_s)
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
+      return(sapply(0:N, function(K){exp(-lambda) * lambda^K/factorial(K)})) #Poisson PMF
+    })
+    } else{
+    dist_prevs = lapply(prevs, function(prev){ # 1:K infected from comm
+      c((1-prev)^N, sapply(1:N, function(K){ compute_pd(N,K, prev)
+      }))})  ### list (B length) of N+1 items (for 0:N infected), each of length k
+    }
+  
+  ## Sample tau from prior
+  if (is.null(tau_graph_effect) == FALSE){
+    taus = tau_graph_effect(tau, B)
+<<<<<<< HEAD
+    dist_taus = lapply(taus, function(tau){
+      sapply(1:N, function(K){ compute_td(N,K, tau) # compute for each tau and value of N
+        # MODIFIED: added c((1-tau)^N)
+      })})  ### N x B
+=======
+>>>>>>> dd02b2908eecbbcbed04771ab0b49898c7d8da09
+  }else{
+    taus = rep(tau, B)
+  }
+  
+  ## REVIEW LATER
+  if (is.null(tau_subject_effect) == FALSE){
+    taus_f <- function(b){tau_subject_effect(x=tau)}
+    dist_taus = lapply(1:B, function(b){ #for B simulations
+      sapply(1:N, function(K){ 
+        sapply(1:(K), function(k){
+          pp = mean(sapply(1:B, function(x){1- exp(sum(log(1-tau_subject_effect(x=tau, k))))}))
+          choose(N-k, K-k)  * pp^(K-k) * (1-pp)^(N-K)
+        })
+      })
+      # sapply(1:N, function(K){ 
+      #   #### generate subject effects
+      #   sapply(1:(K), function(k){
+      #     # taus_v = taus_f((N-K)*K) 
+      #     if (k<K){
+      #       choose(N-k, K-k) * exp(sum(log(1-taus_f((N-K)*k)))) * exp(sum(sapply(1:(K-k), function(j){log(1-exp(sum(log(1-taus_f(k)))))})))  
+      #     }else{
+      #       exp(sum(log(1-taus_f((N-K)*K))))
+      #     }
+      #     
+      #  })})
+      })
+  }else{
+      dist_taus = lapply(taus, function(tau){
+      sapply(1:N, function(K){ compute_td(N,K, tau) # compute for each tau and value of N
+      })})  ### N x B
+  }
+  
+  
+  #### Now compute the dot product
+  test = sapply(1:B,function(b){
+    c(dist_prevs[[b]][[1]], sapply(1:N, function(k){
+      sum(dist_prevs[[b]][[(k+1)]] * dist_taus[[b]][[k]])
+    }))
+  }) 
+  # make sure sums to 1 (since we are approximating)
+  # normalize if needed 
+  return(test)
+}
+```
+
+Recall, $N$= group size, $K$= number of total positives, $k$ = number positive from community
+$K-k$ = number positive from network
+$N-k$ = number not positive from community (either negative or positive from network)
+if (k<K): 
+$$ 
+{N-k \choose K-k} \times e^{\sum(log(1- \tau_f((N-K)*k)))} \times e^{\sum(sapply(1:(K-k), function(j){log(1-exp(sum(log(1-taus_f(k)))))})))}  
+$$
+$e^{\sum(log(1- \tau_f((N-K)*k)))}$ is the probability of individuals not infected by network or community
+second term is individuals infected by network 
+
+`taus_f((N-K)*k)` returns $(N-K)*k$ sampled $\tau$ values. 
+
+else{
+            exp(sum(log(1-taus_f((N-K)*K))))
+          }
+
+
+# Load the real data and extract the distribution parameters
+```{r}
+# Get all tests
+tests <- data.table::fread("alltests_1mar24jun_v1.csv")
+
+# Keep only valid positive ct values for first tests
+tests %>% filter(result == "positive", firsttest==TRUE,!is.na(cttarget)) %>% pull(cttarget) -> cts
+
+# Fit Weibull Distribution
+fw <- fitdist(cts, "weibull")
+```
+
+```{r}
+## GENERATE UN-CORRELATED Ct DATA
+# Add variable of proportion Ct value >LoD to model, as surrogate for differences in viral load distribution in different populations
+
+# Number of replicates to generate ecdf offset values for above.
+set.seed(42)
+x<-5000
+
+# Create simulated vector of ct values with same shape as that from Weibull distribution fit to ct values from real first tests
+# 5000 draws from weibull with shape and scale parameters drawn from real data
+ct_fake_input <- rweibull(x,fw[[1]][1],fw[[1]][2]) 
+
+# Create matrix of desired input parameters
+# Change above.lod to % samples with ct value >LoD to reflect actual population of interest. Changing "lod" itself has no effect on model output.
+lod <- 35
+above.lod <- seq(0.05,0.3,0.05)
+translation_vector <- seq(-10,15,0.01)
+mat<-matrix(ncol=3,nrow=length(translation_vector))
+
+# Loop 1: fix LOD; for known shift, what percent of samples are above LoD (a)? 
+for(v in 1:length(translation_vector)){
+  i=1 
+  fn<-ecdf(subset(pmax(5,ct_fake_input+translation_vector[v]),
+                  (pmax(5,ct_fake_input+translation_vector[v]))<45)) ## selects adequate values within the sample
+			a<-1-fn(lod) ## percent of cvalues in the distribution above the LoD 
+			mat[(v-1)+i,1]<-lod
+			mat[(v-1)+i,2]<-a
+			mat[(v-1)+i,3]<-translation_vector[v]
+}
+
+# Shift ct values for each LoD and %above lod
+mat2<-matrix(ncol=3,nrow=length(above.lod))
+
+# Loop 2: fix LOD; for known a, how much should you shift? 
+for(j in 1:length(above.lod)){
+	tmp<-subset(mat,mat[,1]==lod)
+	u<-tmp[which.min(abs(above.lod[j]-tmp[,2])),3]
+	mat2[j,1]<-lod[i]
+	mat2[j,2]<-above.lod[j]
+	mat2[j,3]<-u
+}
+```
+
+# Include the probit  coefficients
+The probits scores are necessary to compute the viral load.
+```{r}
+# probit data input
+probit_input <- read.csv("probit_zscores_cts_tissue_agnostic.csv")
+probit_t<-subset(probit_input,probit_input$z_value<=1.96 & probit_input$z_value>=-1.96)
+probit<-probit_t[,c(2,4,3)]
+probit<-probit[order(probit$z_value,probit$ct_value),]
+z_scores<-as.numeric(unlist(distinct(probit,z_value)))
+
+# Number of replicates for model
+set.seed(42)
+n <- 10000
+
+pool.max<-20
+probit.mode<-c("base","dsa.lower","dsa.upper","psa") 
+probit.mode.index<-1 # 1 = no variation, 2, = LLN, 3 = ULN, 4 = probabilistic
+probit.z.indices<-c(488,1,length(z_scores)) # 488 is a z score of 0 (base case) in the z index vector
+dilution.vary.index<-1 # 1 = no variation, 2 = probabilistic
+```
+
+```{r}
+pool.size <- pool.max
+ct_dat <- ct_fake_input
+above <- 3 # 15% > LoD
+# pool.size = n
+B=10 #1000
+# RV to simulate sensitivity 
+sens_fxn <- function(N){ # change this so ct_dat, n, B, etc are not implicit arguments (pass to fxn)
+  sapply(1:N, function(positives){
+    set.seed(123)
+    ct_set <- pmax(5,subset(ct_dat + mat2[above,3], ct_dat + mat2[above,3]<45)) 
+    # (1) generate additional set of C_t values with above = 5-30% of values above each LoD; subset to only valid Ct values (<45)
+    # (2) ct_set is the parallel maximum of the C_t values from (1) vs. 5 (why 5??)
+    threshold.ct <- c(sample(ct_set, n, replace=T)) # sample ct_set with replacement
+    dat <- matrix(sample(threshold.ct, positives * B, replace=T), nrow=positives) 
+    # sample data uniformly at random 
+    # n samples of positives, rearrange into a matrix of positive rows, n columns
+    each.conc = -log2(colSums(2^-dat)/pool.size)+ifelse(dilution.vary.index==1,0, # pool.size should be N? 
+                                                        rnorm(mean=0,sd=1.1,n=ncol(dat)))
+    # sd of 1.1 reflects confidence interval for deviation from perfect log2 dilution in assays
+    # calculation dilution based on number of positives (colSum) in total pool size (p)
+    z.index= probit.z.indices[probit.mode.index]
+    # probit score: probability of false positive or false negative test
+    return(mean(probit[1+(z.index-1)*571+each.conc*10-(lod-35.9)*10,2]))
+    # returns probability that a test is positive given k positives in sample
+  })
+} 
+
+sens_fxn(20)
+# prev_graph_effect <- function(x, B){
+#   a = rnorm(B, log(x/(1-x)), 3)
+#   return((1/(1+exp(-a))))
+# }
+
+it =1
+# N <- pool.max
+# N <- 10
+# prev <- 0.1
+# tau <- 0.3
+
+for (N in 1:pool.max){
+  for (prev in c(0.005, 0.01, 0.05, 0.1, 0.15)){
+  # 0.001, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.2, 0.25, 0.3
+  for(tau in seq(0, 0.6, by = 0.1)){
+    # seq(from=0.00, to=0.7, by=0.005)
+    print(c(prev,tau, N))
+    a = list(proba_laws(N, prev, tau, 
+                        tau_graph_effect=NULL,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=NULL,
+                        prev_subject_effect=NULL,
+                        null_mod = NULL,
+                        B=10),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=tau_graph_effect,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=NULL,
+                        prev_subject_effect=NULL,
+                        null_mod = NULL,
+                        B=10),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=NULL,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=prev_graph_effect,
+                        prev_subject_effect=NULL,
+                        null_mod = NULL,
+                        B=10),
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=tau_graph_effect,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=prev_graph_effect,
+                        prev_subject_effect=NULL,
+                        null_mod = NULL,
+                        B=10), 
+             proba_laws(N, prev, tau, 
+                        tau_graph_effect=NULL,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=NULL,
+                        prev_subject_effect=NULL,
+                        null_mod = TRUE,
+                        B=10)
+    )
+    
+    names = c("Fixed", "Tau Graph Effect","Pi Graph Effect","All Graph Effect", "Null Model")
+    for (n in 1:5){
+      sens <- sens_fxn(N) # prob(test positive | sum(Y_i) = k)
+      prob_pos <- sapply(1:B, function(b){sum(a[[n]][2:(N+1), b] * sens)}) 
+      # a[[n]][2:(N+1), b] is the vector of probablities (for the bth simulation)
+      # of having 1:N positives in a pool of size N
+      if (it ==1){
+        res = data.frame(
+          sensit = sapply(1:B, function(b){
+            sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}), #sensitivity
+          
+          ppa = sapply(1:B, function(b){
+            (sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))/sens_fxn(1)}),
+          
+          num_tests = (1/N) + prob_pos,
+          #num_tests = (1/N) + sapply(1:B, function(b){sum(a[[n]][2:(N+1), b])}) +,
+            
+          caught_cases = sapply(1:B, function(b){
+            (sum(c(1:N)*a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))})/((1/n) + prob_pos),
+          
+          missed_cases_persample = sapply(1:B, function(b){ # missed cases per sample
+            (sum(c(1:N)*a[[n]][2:(N+1), b] * (1-sens)))})/((1/n) + prob_pos),
+          
+          type = names[n], 
+          pool_size = N, 
+          prev = prev, 
+          tau = tau)
+      }else{
+        res = rbind(res,
+                    data.frame(sensit = sapply(1:B, function(b){
+                      sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b])}),
+                      
+                      ppa = sapply(1:B, function(b){
+                        (sum(a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))/sens_fxn(1)}),
+                      
+                      num_tests = (1/N) + prob_pos,
+                      
+                      caught_cases = sapply(1:B, function(b){
+                        (sum(c(1:N)*a[[n]][2:(N+1), b] * sens)/sum(a[[n]][2:(N+1), b]))})/((1/n) + prob_pos),
+                      
+                      missed_cases_persample = sapply(1:B, function(b){ # missed cases per sample
+                        (sum(c(1:N)*a[[n]][2:(N+1), b] * (1-sens)))})/((1/n) + prob_pos),
+                      type = names[n], 
+                      pool_size = N, 
+                      prev = prev, 
+                      tau = tau))
+      }
+      it = it + 1
+    }
+  }
+} 
+}
+
+# write.csv(res, "sim_march31.csv") # sampling tau from uniform distribution
+
+# write.csv(res, "sim_march27.csv")
+# write.csv(res, "sim_march29.csv")
+```
+
+```{r}
+ggplot(probit %>% group_by(ct_value) %>% summarize(probit_probability_detection = mean(probit_probability_detection)), aes(x=ct_value, y=probit_probability_detection)) + 
+  geom_point()
+```
+
+
+## Debugging
+
+Just generate probabilities
+```{r}
+# inputs for debugging/testing purposes
+N <- 5
+prev <- .1
+tau <- .2
+B <- 10
+```
+
+```{r}
+it=1
+for (N in 1:pool.max){
+  for (prev in c(0.005, 0.01, 0.05, 0.1, 0.15)){
+    # 0.001, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.12, 0.15, 0.17, 0.2, 0.25, 0.3
+    for(tau in seq(0, 0.6, by = 0.1)){
+      # seq(from=0.00, to=0.7, by=0.005)
+      print(c(prev,tau, N))
+      a = list(proba_laws(N, prev, tau, 
+                          tau_graph_effect=NULL,
+                          tau_subject_effect=NULL, 
+                          prev_graph_effect=NULL,
+                          prev_subject_effect=NULL,
+                          null_mod = NULL,
+                          B=10),
+               proba_laws(N, prev, tau, 
+                          tau_graph_effect=tau_graph_effect,
+                          tau_subject_effect=NULL, 
+                          prev_graph_effect=NULL,
+                          prev_subject_effect=NULL,
+                          null_mod = NULL,
+                          B=10),
+               proba_laws(N, prev, tau, 
+                          tau_graph_effect=NULL,
+                          tau_subject_effect=NULL, 
+                          prev_graph_effect=prev_graph_effect,
+                          prev_subject_effect=NULL,
+                          null_mod = NULL,
+                          B=10),
+               proba_laws(N, prev, tau, 
+                          tau_graph_effect=tau_graph_effect,
+                          tau_subject_effect=NULL, 
+                          prev_graph_effect=prev_graph_effect,
+                          prev_subject_effect=NULL,
+                          null_mod = NULL,
+                          B=10), 
+               proba_laws(N, prev, tau, 
+                          tau_graph_effect=NULL,
+                          tau_subject_effect=NULL, 
+                          prev_graph_effect=NULL,
+                          prev_subject_effect=NULL,
+                          null_mod = TRUE,
+                          B=10)
+      )
+      
+      names = c("Fixed", "Tau Graph Effect","Pi Graph Effect","All Graph Effect", "Null Model")
+      for (n in 1:5){
+        prob_dat = data.frame(
+            prob = t(sapply(1:B, function(b){a[[n]][,b]})),
+            type = names[n], 
+            pool_size = N, 
+            prev = prev, 
+            tau = tau) 
+        if (it ==1){
+          prob_dat_long <- reshape2::melt(prob_dat,
+                                        # ID variables - all the variables to keep but not split apart on
+                                        id.vars=c("type", "pool_size", "prev", "tau"),
+                                        # The source columns are all remaining columns
+                                        # Name of the destination column that will identify the original
+                                        # column that the measurement came from
+                                        variable.name="num_pos",
+                                        value.name="prob_pos")
+          prob_dat_long$num_pos <- rep(0:N, each = B)
+          check <- data.frame(prob_sum = (1/B)*sum(prob_dat_long[,"prob_pos"]), 
+                              good = ifelse((1/B)*sum(prob_dat_long[,"prob_pos"]) == 1, 1, 0),
+                              type = names[n], 
+                              pool_size = N, 
+                              prev = prev, 
+                              tau = tau)
+        }else{
+          temp <- reshape2::melt(prob_dat,
+                                 # ID variables - all the variables to keep but not split apart on
+                                 id.vars=c("type", "pool_size", "prev", "tau"),
+                                 # The source columns are all remaining columns
+                                 # Name of the destination column that will identify the original
+                                 # column that the measurement came from
+                                 variable.name="num_pos",
+                                 value.name="prob_pos")
+          temp$num_pos <- rep(0:N, each = B)
+          check_temp <- data.frame(prob_sum = (1/B)*sum(temp[,"prob_pos"]),
+                                   good = ifelse((1/B)*sum(temp[,"prob_pos"]) == 1, 1, 0), 
+                                   type = names[n], 
+                                   pool_size = N, 
+                                   prev = prev, 
+                                   tau = tau)
+          check <- rbind(check, check_temp)
+          prob_dat_long = rbind(prob_dat_long, temp)
+          
+        }
+        prob_dat <- NULL
+        it = it + 1
+      }
+    }
+  } 
+}
+
+#t(sapply(1:B, function(b){a[[1]][,b]}))
+```
+
+
+```{r}
+table(check$good) #61 probs don't sum to 1
+bad <- check[which(check$good == 0),]
+# apparently the sum is 1 so these are actually ok?
+```
+
+TODO: plot (1) sensitivity as a function of Ct values ; (2) sensitivty as function of number of infected
+
+TODO: Plot probabilities 
+plot cumulative distribution functions
+plot for a specific k
+```{r}
+colourCount <- length(unique(prob_dat_long$num_pos))
+myColors <- colorRampPalette(brewer.pal(9, "Set1"))(colourCount)
+prev.labs <- c("Prevalence= 0.005", "0.01", "0.05", "0.1", "0.15")
+names(prev.labs) <- c("0.005", "0.01", "0.05", "0.1", "0.15")
+tau.labs <- c("Tau = 0.0", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6")
+names(tau.labs) <- c("0", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6")
+
+ggplot(prob_dat_long, mapping = aes(x=pool_size, y=prob_pos, fill=as.factor(num_pos))) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_grid(tau ~ prev, labeller = labeller(tau = tau.labs, prevalence = prev.labs)) +
+  theme_bw() +
+  scale_fill_manual(values = myColors, name="Number of\ntests positive") +
+  xlab("Pool size") + ylab("Probability") +
+  ggtitle("Probability of K positives given pool size and population prevalence") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(1,20,4)) + scale_y_continuous(limits=c(0,1.01),breaks=seq(0,2,.2))
+
+
+ggplot(prob_dat_long, mapping = aes(x=prob_pos, fill=as.factor(num_pos))) +
+  geom_histogram() + 
+  facet_wrap(~pool_size)
+```
+
+```{r}
+B <- 10
+temp <- proba_laws(N, prev, tau, 
+                        tau_graph_effect=NULL,
+                        tau_subject_effect=NULL, 
+                        prev_graph_effect=NULL,
+                        prev_subject_effect=NULL,
+                        null_mod = TRUE,
+                        B=10)
+sapply(1:B, function(b){
+            sum(temp[2:(N+1), b] * sens)/sum(temp[2:(N+1), b])}) #sensitivity 
+
+sapply(1:B, function(b){
+            (sum(temp[2:(N+1), b] * sens)/sum(temp[2:(N+1), b]))/sens_fxn(1)}) #ppa
+
+(1/N) + sapply(1:B, function(b){sum(sens*temp[1:(N+1), b])}) 
+
+(1/N)*(1 + (sens[1]*sum(temp[2:(N+1),1]))) 
+
+(N+1)*.9 + (1-.1)
+
+```
+
+
+
+
+```{r}
+res %>%
+  group_by(tau, prev, pool_size) %>%
+  summarise(n())
+```
+
+
+```{r}
+# res <- read.csv("sim_march27.csv")
+
+# res_trim <- res %>%
+#   filter(type == "All Graph Effect" | type == "Fixed") %>%
+#   filter(tau == 0 | tau ==0.01 | tau ==0.02 | tau ==0.03 | tau ==0.05 | tau ==0.06 | tau ==0.07 | tau ==0.08 | tau ==0.09 | tau ==0.1) %>%
+#   filter(prev == 0 | prev ==0.01 | prev ==0.02 | prev ==0.03 | prev ==0.05 | prev ==0.06 | prev ==0.07 | prev ==0.08 | prev ==0.09 | prev ==0.1) %>%
+#   dplyr::select(x, type, pool_size, prev, tau)
+```
+
+# Plotting
+```{r}
+# calculate sd, mean and 2.5% and 97.5% quartiles for each outcome variable of interest
+# grouped by type, pool_size, tau and prev
+sds <- aggregate(cbind(res$sensit, res$ppa, res$num_tests, res$missed_cases_persample), 
+                 list(res$type, res$pool_size, res$tau, res$prev), sd)
+means <- aggregate(cbind(res$sensit, res$ppa, res$num_tests, res$missed_cases_persample), 
+                   list(res$type, res$pool_size, res$tau, res$prev), mean)
+sens_quartile_low <- aggregate(sensit ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.025))
+sens_quartile_upper <- aggregate(sensit ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.975))
+ppa_quartile_low <- aggregate(ppa ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.025))
+ppa_quartile_upper <- aggregate(ppa ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.975))
+tests_quartile_low <- aggregate(num_tests ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.025))
+tests_quartile_upper <- aggregate(num_tests ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.975))
+missed_quartile_low <- aggregate(missed_cases_persample ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.025))
+missed_quartile_upper <- aggregate(missed_cases_persample ~ type + pool_size + tau + prev, res, FUN =  function(x) quantile(x, probs =0.975))
+
+
+conf_int <- cbind(sds, means[,5:8], sens_quartile_low$sensit, sens_quartile_upper$sensit, 
+                  ppa_quartile_low$ppa, ppa_quartile_upper$ppa, 
+                  tests_quartile_low$num_tests, tests_quartile_upper$num_tests, 
+                  missed_quartile_low$missed_cases_persample, missed_quartile_upper$missed_cases_persample)
+names(conf_int) <- c("type", "pool_size", "tau", "prev", 
+                     "sd_sens", "sd_ppa", "sd_tests", "sd_missed",
+                     "mean_sens", "mean_ppa", "mean_tests", "mean_missed", 
+                     "sensit_ql", "sensit_qu", 
+                     "ppa_ql", "ppa_qu", 
+                     "num_tests_ql", "num_tests_qu", 
+                     "missed_cases_ql", "missed_cases_qu")
+```
+
+
+```{r}
+tau_val <- seq(0, .6, .1)
+
+sens_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_sens, color=as.factor(type))) +
+  geom_line() +
+  #geom_point()+
+  facet_wrap(~ prev) +
+  #geom_errorbar(aes(x=pool_size, ymin=ci_lower, ymax=ci_upper), width=.3) +
+  geom_ribbon(aes(x=pool_size, ymin = sensit_ql, ymax = sensit_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  # scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + 
+  ylab("Sensitivity") +
+  #scale_y_continuous(limits=c(0.5, 1)) +
+  ggtitle(paste("Tau =", i)) +
+  #scale_x_continuous(limits=c(1,10), breaks=seq(0,10,2)) +
+  guides(color=guide_legend(title="Correlation")) 
+})
+
+library(ggpubr)
+
+pdf("sensitivity_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(sens_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("sensitivity_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(sens_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+# use geom_ribbon() instead
+# jitter the position so they don't overlap exactly
+# compare to the null: binomial (non correlation, independence)
+# to compute CI: empirical quantiles 97.5 and 2.5 from the simulation
+# fix y-limits to be fro 0.5 to 1
+# fix specific value of tau and prev
+```
+
+```{r}
+ppa_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_ppa, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    geom_ribbon(aes(x=pool_size, ymin = ppa_ql, ymax = ppa_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    xlab("Pool size") + 
+    ylab("PPA") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+
+pdf("ppa_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(ppa_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("ppa_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(ppa_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+
+```{r}
+tests_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_tests, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    geom_ribbon(aes(x=pool_size, ymin = num_tests_ql, ymax = num_tests_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    xlab("Pool size") + 
+    ylab("Expected Number Tests / Sample") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+pdf("tests_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(tests_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("tests_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(tests_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+```{r}
+missed_plots <- lapply(tau_val, function(i){
+  ggplot(conf_int[conf_int$tau == i,], aes(x=pool_size, y= mean_missed, color=as.factor(type))) +
+    geom_line() +
+    #geom_point()+
+    facet_wrap(~ prev) +
+    #geom_errorbar(aes(x=pool_size, ymin=ci_lower, ymax=ci_upper), width=.3) +
+    geom_ribbon(aes(x=pool_size, ymin = missed_cases_ql, ymax = missed_cases_qu, fill = as.factor(type)), show.legend = F, alpha = 0.3)+
+    theme_bw() + 
+    theme(axis.title.x = element_blank())+
+    # scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+    xlab("Pool size") + 
+    ylab("Missed Cases / Sample") +
+    ggtitle(paste("Tau =", i)) +
+    guides(color=guide_legend(title="Correlation")) 
+})
+pdf("missed_figa.pdf",width=8, height=5)  
+do.call(ggarrange, c(missed_plots[1:4], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+
+pdf("missed_figb.pdf",width=8, height=5)  
+do.call(ggarrange, c(missed_plots[5:7], ncol = 2, nrow = 2, common.legend=TRUE, legend = "bottom"))
+dev.off()
+```
+```{r}
+pdf("all_tau_3.pdf", width = 8, height = 5)
+ggarrange(sens_plots[[4]], ppa_plots[[4]], tests_plots[[4]], missed_plots[[4]], 
+          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
+dev.off()
+pdf("all_tau_0.pdf", width = 8, height = 5)
+ggarrange(sens_plots[[1]], ppa_plots[[1]], tests_plots[[1]], missed_plots[[1]], 
+          nrow = 2, ncol = 2, common.legend = TRUE, legend = "bottom")
+dev.off()
+```
+
+```{r}
+# table to nummerically summarize some of the graphical results
+null_res <- res %>%
+  filter(tau == 0 & type == "Fixed") 
+alt_res <- res %>%
+  filter(tau == "0.3" & type == "All Graph Effect") 
+
+
+summary_table <- allci %>%
+  mutate(ppa_diff=ppa - ppa_null, 
+         test_diff=tests.per.sample - tests.per.sample_null, 
+         ppa_pct_increase = ((ppa-ppa_null)/ppa_null)*100, 
+         test_pct_decrease = ((tests.per.sample - tests.per.sample_null)/tests.per.sample_null)*100) %>%
+  filter(pool == 4 | pool == 18) %>%
+  filter(prevalence == 0.001 | prevalence == 0.1) %>%
+  dplyr::select(pool, prevalence, tau, 
+                ppa_null, ppa_pct_increase,
+                tests.per.sample_null, test_pct_decrease,
+                ppa_diff, test_diff)
+
+write.csv(summary_table, "summary_table_ppa.csv")
+```
+
+
+
+```{r}
+ggplot() +
+  geom_point(res, mapping = aes(x=pool_size, y= sensit, color=as.factor(type))) +
+  facet_grid(tau ~ prev) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + 
+  ylab("Sensitivity") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + 
+  guides(color=guide_legend(title="Correlation")) 
+
+# use geom_ribbon()
+```
+
+```{r}
+ggplot() +
+  geom_point(res, mapping = aes(x=pool_size, y= num_tests, color=as.factor(type))) +
+  facet_grid(tau ~ prev) +
+  theme_bw() + 
+  theme(axis.title.x = element_blank())+
+  scale_color_brewer(palette="RdYlBu", name="Prevalence") + 
+  xlab("Pool size") + 
+  ylab("Expected Number Tests / Sample") +
+  # ggtitle("Correlated vs. IID Samples") +
+  scale_x_continuous(limits=c(1,20), breaks=seq(0,20,2)) + 
+  guides(color=guide_legend(title="Correlation")) 
+```
+
+
+
+```{r}
+res$
+  ggplot(res) +
+  
+  
+  
+  test = sapply(1:B, function(b){
+    sum(a[, b] * c(0,sens))
+  })
+
+test = sapply(1:B, function(b){
+  sum(a[2:(N+1), b] * sens)/sum(a[2:(N+1), b])
+})
+#### Is this legit?  ## Need to run the simulations
+```
+
+
+
+
