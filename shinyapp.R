@@ -10,7 +10,7 @@ source("beta_params.R")
 source("covid_case_predictions.R")
 source("under_ascertainment_bias.R")
 
-above.lod = 0.25  #### Need to update this depending on the LOD of the test
+#above.lod = 0.25  #### Need to update this depending on the LOD of the test
 
 
 # change
@@ -59,35 +59,35 @@ ui <- dashboardPage(
     #              label = "What is the maximum number of people per pool?",
     #              value = 30,
     #              min=0, max=50),
-     numericInput(inputId = "N",
-                       label = "What is the maximum number of people per pool?",
-                       value = 30,
-                       min=0),
-      radioButtons(inputId = "above.llod",
-                  label = "What proportion of your pool do you estimate to be above the LOD of your PCR machine?",
-                  choices = mat2[,2] * 100,
-                  selected= 20),
-     sliderInput("prev", label = "What is the estimated 95%-confidence range for the number of active COVID-19 infections per million in the community?\n (See right tab if unknown.)" , min = 0, 
+    numericInput(inputId = "N",
+                 label = "What is the maximum number of people per pool?",
+                 value = 30,
+                 min=0),
+    radioButtons(inputId = "above.llod",
+                 label = "What proportion of your pool do you estimate to be above the LOD of your PCR machine?",
+                 choices = mat2[,2] * 100,
+                 selected= 20),
+    sliderInput("prev", label = "What is the estimated 95%-confidence range for the number of active COVID-19 infections per million in the community?\n (See right tab if unknown.)" , min = 0, 
                 max = 100000, value = c(50, 150),
                 step = 50),
-      ##numericInput(inputId = "prev",
-          #              label="What is the estimated prevalence of active COVID-19 infections in the community?",
-          #              value=1,
-          #              min=0),
-          # numericInput(inputId = "prev_lw_ci",
-          #              label="What is the lower 95% CI on the prevalence?",
-          #              value=1,
-          #              min=0),
-          # numericInput(inputId = "prev_up_ci",
-          #              label="What is the upper 95% CI on the prevalence?",
-          #              value=1,
-          #              min=0),
-          radioButtons(inputId="tau_setting",
-                        label="What is the network transmission scenario within the pool?",
-                        choices=c("From Child Index Case", "Healthcare Setting", "Spouses",
-                                 "Household (Asymptomatic Index Case)", "Household (Symptomatic Index Case)")),
+    ##numericInput(inputId = "prev",
+    #              label="What is the estimated prevalence of active COVID-19 infections in the community?",
+    #              value=1,
+    #              min=0),
+    # numericInput(inputId = "prev_lw_ci",
+    #              label="What is the lower 95% CI on the prevalence?",
+    #              value=1,
+    #              min=0),
+    # numericInput(inputId = "prev_up_ci",
+    #              label="What is the upper 95% CI on the prevalence?",
+    #              value=1,
+    #              min=0),
+    radioButtons(inputId="tau_setting",
+                 label="What is the network transmission scenario within the pool?",
+                 choices=c("From Child Index Case", "Healthcare Setting", "Spouses",
+                           "Household (Asymptomatic Index Case)", "Household (Symptomatic Index Case)")),
     width = 300
-        
+    
   ),
   dashboardBody(
     fluidRow(
@@ -95,7 +95,7 @@ ui <- dashboardPage(
         # Title can include an icon
         title = "Results: Sensitivity of the pool",
         plotOutput("distPlot")
-        ),
+      ),
       box(
         side = "right",
         title = "Predicting the prevalence",
@@ -243,7 +243,7 @@ server <- function(input, output, session) {
   
   
   dataInputPrev <- eventReactive(input$go_prev, {
-  
+    
     bias<- compute_underascertainment_bias(min(as.Date(as.character(input$date_event)),  Sys.Date()) - (21+14),
                                            input$country, COUNTRY_DATA, 
                                            Case_to_death_delay= 21, 
@@ -284,7 +284,7 @@ server <- function(input, output, session) {
       future_prevalence_df = prevalence_df %>%
         dplyr::filter(time > 0) %>%
         dplyr::mutate(prevalence = 1/bias_corr * prevalence,
-               sd_prevalence = 1/bias_corr * sd_prevalence)
+                      sd_prevalence = 1/bias_corr * sd_prevalence)
     }else{
       data2fit = COUNTRY_DATA %>% 
         dplyr::filter(date >= as.Date(as.character(input$date_event)) - PERIOD_FOR_PREDICTING - 2,
@@ -298,8 +298,8 @@ server <- function(input, output, session) {
       ##### Compute SD using k-nn (here n=10 should suffice)
       uu = sapply(3: (PERIOD_FOR_PREDICTING),function(i){sd(data2fit$new_cases_smoothed[(i-2): (i+2)])})
       uu = c(uu, rep(uu[length(uu)], PERIOD_FOR_PREDICTING + 1  - length(uu)))
-    
-  
+      
+      
       future_prevalence_df  = data.frame("time" = 1:(PERIOD_FOR_PREDICTING+1),
                                          "prevalence" =  1/bias_corr * 1e-6 * data2fit$new_cases_smoothed_per_million[2: (PERIOD_FOR_PREDICTING+2) ],
                                          "sd_prevalence" = 1e-6/bias_corr *uu,
@@ -449,37 +449,37 @@ server <- function(input, output, session) {
         }
         incProgress(1/(input$N+2), detail = paste0("Simulation for pool size ", N + 1, "/", input$N))
       }
-   
-    incProgress(1 /(input$N+2), detail = "Summarizing results")
-    conf_int <- res %>% 
-      group_by(type, pool_size, tau, prev, tau_param, prev_param, tau_setting) %>% #prev_setting, 
-      summarise(sd_sens= sd(sensit), 
-                sd_ppa = sd(ppa), 
-                sd_tests = sd(num_tests), 
-                sd_missed = sd(missed_cases_persample),
-                mean_sens= mean(sensit), 
-                mean_ppa = mean(ppa), 
-                mean_tests = mean(num_tests), 
-                mean_missed = mean(missed_cases_persample), 
-                sens_q025 = quantile(sensit, probs=0.025), 
-                sens_q975 = quantile(sensit, probs = 0.975), 
-                ppa_q025 = quantile(ppa, probs=0.025), 
-                ppa_q975 = quantile(ppa, probs = 0.975), 
-                tests_q025 = quantile(num_tests, probs=0.025), 
-                tests_q975 = quantile(num_tests, probs = 0.975), 
-                missed_q025 = quantile(missed_cases_persample, probs=0.025), 
-                missed_q975 = quantile(missed_cases_persample, probs = 0.975), 
-                sens_fda = mean(sensit >= 0.85), 
-                sens_fda_q025 = mean(sens_q025 >=0.85), 
-                sens_fda_q975 = mean(sens_q975>=0.85))
-    conf_int$prev <- round(conf_int$prev, 5)
-    conf_int$tau <- round(conf_int$tau, 5)
+      
+      incProgress(1 /(input$N+2), detail = "Summarizing results")
+      conf_int <- res %>% 
+        group_by(type, pool_size, tau, prev, tau_param, prev_param, tau_setting) %>% #prev_setting, 
+        summarise(sd_sens= sd(sensit), 
+                  sd_ppa = sd(ppa), 
+                  sd_tests = sd(num_tests), 
+                  sd_missed = sd(missed_cases_persample),
+                  mean_sens= mean(sensit), 
+                  mean_ppa = mean(ppa), 
+                  mean_tests = mean(num_tests), 
+                  mean_missed = mean(missed_cases_persample), 
+                  sens_q025 = quantile(sensit, probs=0.025), 
+                  sens_q975 = quantile(sensit, probs = 0.975), 
+                  ppa_q025 = quantile(ppa, probs=0.025), 
+                  ppa_q975 = quantile(ppa, probs = 0.975), 
+                  tests_q025 = quantile(num_tests, probs=0.025), 
+                  tests_q975 = quantile(num_tests, probs = 0.975), 
+                  missed_q025 = quantile(missed_cases_persample, probs=0.025), 
+                  missed_q975 = quantile(missed_cases_persample, probs = 0.975), 
+                  sens_fda = mean(sensit >= 0.85), 
+                  sens_fda_q025 = mean(sens_q025 >=0.85), 
+                  sens_fda_q975 = mean(sens_q975>=0.85))
+      conf_int$prev <- round(conf_int$prev, 5)
+      conf_int$tau <- round(conf_int$tau, 5)
     })
     #return(list(m=m, x=res, pool = input$p))
     return(list(x=conf_int))
   })
   
-
+  
   
   
   output$distPlot <- renderPlot({
@@ -525,7 +525,7 @@ server <- function(input, output, session) {
                                              expression("Spouses"),
                                              expression("Household \n (Asymptomatic Index Case)"), 
                                              expression("Household \n (Symptomatic Index Case)")
-                                             ))
+                                  ))
     # Fixed and Tau Graph Effect
     sens_plots_pifixed <- lapply(types[c(4, 6)], function(i){ # Fixed and Tau Graph Effect
       ggplot(conf_int %>% filter(type == i), aes(x=pool_size, y= mean_sens)) +
@@ -581,7 +581,7 @@ server <- function(input, output, session) {
       theme_bw()+ xlab("Date") + ylab("Incidence (per Million)")+
       ggtitle(paste0("Predicted Incidence (per Million) Per Region\n 95% Confidence Region for Day of Pooling:\n [",
                      round(1e6 * dd$ymin,0), ";", round(1e6*dd$ymax,0), "]" )
-              )+scale_y_log10() + 
+      )+scale_y_log10() + 
       theme(plot.title = element_text(hjust = 0.5,
                                       face = "bold",
                                       size = 14))
@@ -597,7 +597,10 @@ server <- function(input, output, session) {
     #tags$meta(property = "og:description", content = share$description))
     
     tags$div(
-      tags$p("The purpose of this calculator is to assess the efficiency of adding correlations on the expected sensitivity of the pooled sample.")
+      tags$p("This statistical model is for informative and visualization purposes only. 
+      The developers of the model are statisticians, not medicial clinicians. 
+      Results from this model are not recommendations and any pooled testing should 
+      be done following applicable guidelines.")
     )
   })
   
@@ -610,7 +613,18 @@ server <- function(input, output, session) {
     #tags$meta(property = "og:description", content = share$description))
     
     tags$div(
-      tags$p("The purpose of this calculator is to assess the efficiency of adding correlations on the expected sensitivity of the pooled sample.")
+      tags$p("This model implements a two-stage hierarchical pooled testing procedure,
+      in which multiple laboratory specimens are first combined and tested, 
+      and samples from positive pools are subsequently individually re- tested. 
+      The model accounts for deviations from the typical 'independent and identically
+      distributed' assumptions that are often made when implementing pooled testing; 
+      rather, users of this calculator can account for both correlaitons between specimens 
+      and heterogeneity and uncertainty in parameters.
+      The purpose of this calculator is to visualize the efficiency of pooled testing
+      under different levels of disease prevalence and network-transmission, and with varying 
+      uncertainty in model parameters. For more detailed information on the model
+             assumptions and implementation, please see the corresponding 
+             manuscript, available here: ")
     )
   })
   
